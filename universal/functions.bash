@@ -30,7 +30,14 @@ getArrAppInfo () {
     arrName="$(cat /config/config.xml | xq | jq -r .Config.InstanceName)"
     arrApiKey="$(cat /config/config.xml | xq | jq -r .Config.ApiKey)"
     arrPort="$(cat /config/config.xml | xq | jq -r .Config.Port)"
-    arrUrl="http://127.0.0.1:${arrPort}${arrUrlBase}"
+    # Read arrHost from extended.conf if not already set
+    if [ -z "$arrHost" ]; then
+      if [ -f "/config/extended.conf" ]; then
+        arrHost=$(grep -E '^arrHost=' /config/extended.conf | cut -d'=' -f2 | tr -d '"')
+      fi
+      arrHost="${arrHost:-127.0.0.1}"
+    fi
+    arrUrl="http://${arrHost}:${arrPort}${arrUrlBase}"
   fi
 }
 
