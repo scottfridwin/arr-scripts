@@ -1265,7 +1265,10 @@ SearchProcess () {
 		for releaseId in $(echo "$lidarrAlbumReleaseIds"); do
 			releaseTitle=$(echo "$lidarrAlbumData" | jq -r ".releases[] | select(.id==$releaseId) | .title")
 			releaseDisambiguation=$(echo "$lidarrAlbumData" | jq -r ".releases[] | select(.id==$releaseId) | .disambiguation")
-			if [ -z "$releaseDisambiguation" ]; then
+			# --- Change logic ---
+			if [ -z "$releaseDisambiguation" ] || [ "$releaseDisambiguation" == "null" ]; then
+			#if [ -z "$releaseDisambiguation" ]; then
+			# --- End ---
 				releaseDisambiguation=""
 			else
 				releaseDisambiguation=" ($releaseDisambiguation)" 
@@ -1273,6 +1276,19 @@ SearchProcess () {
 			echo "${releaseTitle}${releaseDisambiguation}" >> /temp-release-list 
 		done
   		echo "$lidarrAlbumTitle" >> /temp-release-list 
+
+		# --- Add MusicBrainz Aliases ---
+		mbid=$(echo "$lidarrAlbumData" | jq -r '.foreignAlbumId')
+
+		if [ -n "$mbid" ] && [ "$mbid" != "null" ]; then
+			log "Fetching alternate titles from MusicBrainz for MBID $mbid"
+			curl -s "https://musicbrainz.org/ws/2/release-group/${mbid}?inc=aliases&fmt=json" \
+				| jq -r '.aliases[].name' \
+				| grep -v '^null$' \
+				| sort -u \
+				>> /temp-release-list
+		fi
+		# --- End ---
 
 		# Get Release Titles
 		OLDIFS="$IFS"
