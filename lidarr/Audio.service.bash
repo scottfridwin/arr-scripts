@@ -1486,8 +1486,12 @@ ArtistDeezerSearch () {
 	for deezerAlbumID in $(echo "$deezerArtistAlbumsIds"); do
 		deezerAlbumData="$(echo "$deezerArtistAlbumsData" | jq -r "select(.id==$deezerAlbumID)")"
 		deezerAlbumTitle="$(echo "$deezerAlbumData" | jq -r ".title")"
-		deezerAlbumTitleClean="$(echo ${deezerAlbumTitle} | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
-  		deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"		
+		# --- Add edition stripping ---
+		deezerAlbumTitleEditionless=$(RemoveEditionsFromAlbumTitle "$deezerAlbumTitle")
+		deezerAlbumTitleClean="$(echo ${deezerAlbumTitleEditionless} | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
+  		#deezerAlbumTitleClean="$(echo ${deezerAlbumTitle} | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
+  		# --- End ---
+		deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"		
 		GetDeezerAlbumInfo "$deezerAlbumID"
 		deezerAlbumData="$(cat "/config/extended/cache/deezer/$deezerAlbumID.json")"
 		deezerAlbumTrackCount="$(echo "$deezerAlbumData" | jq -r .nb_tracks)"
@@ -1558,7 +1562,11 @@ FuzzyDeezerSearch () {
 			deezerAlbumData="$(echo "$deezerSearch" | jq -r ".album | select(.id==$deezerAlbumID)")"
 			deezerAlbumTitle="$(echo "$deezerAlbumData" | jq -r ".title")"
 			deezerAlbumTitle="$(echo "$deezerAlbumTitle" | head -n1)"
-			deezerAlbumTitleClean="$(echo "$deezerAlbumTitle" | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
+			# --- Add edition stripping ---
+			deezerAlbumTitleEditionless=$(RemoveEditionsFromAlbumTitle "$deezerAlbumTitle")
+			deezerAlbumTitleClean="$(echo ${deezerAlbumTitleEditionless} | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
+	  		#deezerAlbumTitleClean="$(echo ${deezerAlbumTitle} | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
+	  		# --- End ---
 			deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"
 
 			GetDeezerAlbumInfo "${deezerAlbumID}"
