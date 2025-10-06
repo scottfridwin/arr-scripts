@@ -300,6 +300,15 @@ NotFoundFolderCleaner () {
 	fi
 }
 
+RemoveEditionsFromAlbumTitle() {
+    title="$1"
+    # Remove trailing parentheses if they contain these keywords
+    title=$(echo "$title" | sed -E 's/\s*\((.*(Deluxe|Remaster|Edition|Anniversary|Expanded).*)\)\s*$//I')
+    # Trim whitespace
+    title=$(echo "$title" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
+    echo "$title"
+}
+
 TidalClientSetup () {
 	log "TIDAL :: Verifying tidal-dl configuration"
 	touch /config/xdg/.tidal-dl.log
