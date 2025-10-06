@@ -71,20 +71,20 @@ uv pip install --system --break-system-packages -r ${SMA_PATH}/setup/requirement
 mkdir -p /custom-services.d/python /config/extended
 
 parallel ::: \
-  'echo "Download QueueCleaner service..." && curl -sfL $GITHUB_URL/universal/services/QueueCleaner -o /custom-services.d/QueueCleaner && echo "Done"' \
-  'echo "Download AutoConfig service..." && curl -sfL $GITHUB_URL/lidarr/AutoConfig.service.bash -o /custom-services.d/AutoConfig && echo "Done"' \
-  'echo "Download Video service..." && curl -sfL $GITHUB_URL/lidarr/Video.service.bash -o /custom-services.d/Video && echo "Done"' \
-  'echo "Download Tidal Video Downloader service..." && curl -sfL $GITHUB_URL/lidarr/TidalVideoDownloader.bash -o /custom-services.d/TidalVideoDownloader && echo "Done"' \
-  'echo "Download Audio service..." && curl -sfL $GITHUB_URL/lidarr/Audio.service.bash -o /custom-services.d/Audio && echo "Done"' \
-  'echo "Download AutoArtistAdder service..." && curl -sfL $GITHUB_URL/lidarr/AutoArtistAdder.bash -o /custom-services.d/AutoArtistAdder && echo "Done"' \
-  'echo "Download UnmappedFilesCleaner service..." && curl -sfL $GITHUB_URL/lidarr/UnmappedFilesCleaner.bash -o /custom-services.d/UnmappedFilesCleaner && echo "Done"' \
-  'echo "Download ARLChecker service..." && curl -sfL $GITHUB_URL/lidarr/python/ARLChecker.py -o /custom-services.d/python/ARLChecker.py && curl -sfL $GITHUB_URL/lidarr/ARLChecker -o /custom-services.d/ARLChecker && echo "Done"' \
-  'echo "Download Script Functions..." && curl -sfL $GITHUB_URL/universal/functions.bash -o /config/extended/functions && echo "Done"' \
-  'echo "Download PlexNotify script..." && curl -sfL $GITHUB_URL/lidarr/PlexNotify.bash -o /config/extended/PlexNotify.bash  && echo "Done"' \
-  'echo "Download SMA config..." && curl -sfL $GITHUB_URL/lidarr/sma.ini -o /config/extended/sma.ini  && echo "Done"' \
-  'echo "Download LyricExtractor script..." && curl -sfL $GITHUB_URL/lidarr/LyricExtractor.bash -o /config/extended/LyricExtractor.bash && echo "Done"' \
-  'echo "Download ArtworkExtractor script..." && curl -sfL $GITHUB_URL/lidarr/ArtworkExtractor.bash -o /config/extended/ArtworkExtractor.bash && echo "Done"' \
-  'echo "Download Beets Tagger script..." && curl -sfL $GITHUB_URL/lidarr/BeetsTagger.bash -o /config/extended/BeetsTagger.bash && echo "Done"'
+  "echo 'Download QueueCleaner service...' && curl -sfL $GITHUB_URL/universal/services/QueueCleaner -o /custom-services.d/QueueCleaner && echo Done'" \
+  "echo 'Download AutoConfig service...' && curl -sfL $GITHUB_URL/lidarr/AutoConfig.service.bash -o /custom-services.d/AutoConfig && echo Done'" \
+  "echo 'Download Video service...' && curl -sfL $GITHUB_URL/lidarr/Video.service.bash -o /custom-services.d/Video && echo Done'" \
+  "echo 'Download Tidal Video Downloader service...' && curl -sfL $GITHUB_URL/lidarr/TidalVideoDownloader.bash -o /custom-services.d/TidalVideoDownloader && echo Done'" \
+  "echo 'Download Audio service...' && curl -sfL $GITHUB_URL/lidarr/Audio.service.bash -o /custom-services.d/Audio && echo Done'" \
+  "echo 'Download AutoArtistAdder service...' && curl -sfL $GITHUB_URL/lidarr/AutoArtistAdder.bash -o /custom-services.d/AutoArtistAdder && echo Done'" \
+  "echo 'Download UnmappedFilesCleaner service...' && curl -sfL $GITHUB_URL/lidarr/UnmappedFilesCleaner.bash -o /custom-services.d/UnmappedFilesCleaner && echo Done'" \
+  "echo 'Download ARLChecker service...' && curl -sfL $GITHUB_URL/lidarr/python/ARLChecker.py -o /custom-services.d/python/ARLChecker.py && curl -sfL $GITHUB_URL/lidarr/ARLChecker -o /custom-services.d/ARLChecker && echo Done'" \
+  "echo 'Download Script Functions...' && curl -sfL $GITHUB_URL/universal/functions.bash -o /config/extended/functions && echo Done'" \
+  "echo 'Download PlexNotify script...' && curl -sfL $GITHUB_URL/lidarr/PlexNotify.bash -o /config/extended/PlexNotify.bash  && echo Done'" \
+  "echo 'Download SMA config...' && curl -sfL $GITHUB_URL/lidarr/sma.ini -o /config/extended/sma.ini  && echo Done'" \
+  "echo 'Download LyricExtractor script...' && curl -sfL $GITHUB_URL/lidarr/LyricExtractor.bash -o /config/extended/LyricExtractor.bash && echo Done'" \
+  "echo 'Download ArtworkExtractor script...' && curl -sfL $GITHUB_URL/lidarr/ArtworkExtractor.bash -o /config/extended/ArtworkExtractor.bash && echo Done'" \
+  "echo 'Download Beets Tagger script...' && curl -sfL $GITHUB_URL/lidarr/BeetsTagger.bash -o /config/extended/BeetsTagger.bash && echo Done'"
 
 
 if [ ! -f /config/extended/beets-config.yaml ]; then
