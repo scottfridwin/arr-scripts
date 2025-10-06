@@ -9,6 +9,9 @@ source /config/extended/functions
 #### Create Log File
 logfileSetup
 
+# Ignore broken pipe errors globally
+trap '' PIPE
+
 SECONDS=0
 
 if [ "$lidarr_eventtype" == "Test" ]; then
@@ -27,12 +30,55 @@ if [ "$enableBeetsTagging" != "true" ]; then
   log "Beets tagging is disabled, please enable by setting \"enableBeetsTagging=true\" in \"/config/extended.conf\""
   exit 0
 fi
+log "DEBUG :: Album API URL: $arrUrl/api/v1/album/$lidarr_album_id"
 
-getAlbumArtist="$(curl -s "$arrUrl/api/v1/album/$lidarr_album_id" -H "X-Api-Key: ${arrApiKey}" | jq -r .artist.artistName)"
-getAlbumArtistPath="$(curl -s "$arrUrl/api/v1/album/$lidarr_album_id" -H "X-Api-Key: ${arrApiKey}" | jq -r .artist.path)"
-getTrackPath="$(curl -s "$arrUrl/api/v1/trackFile?albumId=$lidarr_album_id" -H "X-Api-Key: ${arrApiKey}" | jq -r .[].path 2>/dev/null | head -n1)"
+# --- Fetch album JSON ---
+albumJson=$(mktemp)
+if ! curl -s --fail "$arrUrl/api/v1/album/$lidarr_album_id" -H "X-Api-Key: ${arrApiKey}" -o "$albumJson"; then
+    log "ERROR :: Failed to fetch album JSON from Lidarr API"
+    exit 1
+fi
+
+getAlbumArtist="$(jq -r '.artist.artistName // empty' 2>/dev/null "$albumJson")"
+getAlbumArtistPath="$(jq -r '.artist.path // empty' 2>/dev/null "$albumJson")"
+
+if [ -z "$getAlbumArtist" ] || [ -z "$getAlbumArtistPath" ]; then
+    log "ERROR :: Album JSON is empty or missing artist info :: album_id=$lidarr_album_id"
+    exit 1
+fi
+
+# --- Fetch track files ---
+trackJson=$(mktemp)
+if ! curl -s --fail "$arrUrl/api/v1/trackFile?albumId=$lidarr_album_id" -H "X-Api-Key: ${arrApiKey}" -o "$trackJson"; then
+    log "ERROR :: Failed to fetch trackFile JSON from Lidarr API"
+    exit 1
+fi
+
+getTrackPath="$(jq -r '.[0]?.path // empty' 2>/dev/null "$trackJson")"
+if [ -z "$getTrackPath" ]; then
+    log "ERROR :: No track files found for album_id=$lidarr_album_id"
+    exit 1
+fi
+
 getFolderPath="$(dirname "$getTrackPath")"
 getAlbumFolderName="$(basename "$getFolderPath")"
+
+#log "DEBUG :: getAlbumArtist=$getAlbumArtist"
+#log "DEBUG :: getAlbumArtistPath=$getAlbumArtistPath"
+#log "DEBUG :: getTrackPath=$getTrackPath"
+#log "DEBUG :: getFolderPath=$getFolderPath"
+#log "DEBUG :: getAlbumFolderName=$getAlbumFolderName"
+
+# --- Verify folder path ---
+if [[ "$getFolderPath" != *"$getAlbumArtistPath"* ]]; then
+    log "ERROR :: $getAlbumArtistPath not found within \"$getFolderPath\" :: Exiting..."
+    exit 1
+fi
+
+if [ ! -d "$getFolderPath" ]; then
+    log "ERROR :: Folder \"$getFolderPath\" is missing :: Exiting..."
+    exit 1
+fi
 
 log "Processing :: $getAlbumFolderName :: Processing Files..."
 
@@ -44,6 +90,7 @@ else
 	log "ERROR :: $getAlbumArtistPath not found within \"$getFolderPath\" :: Exiting..."
 	exit
 fi
+
 ProcessWithBeets () {
 	log "$1 :: Start Processing..."
 	if find "$1" -type f -iname "*.flac"  | read; then
