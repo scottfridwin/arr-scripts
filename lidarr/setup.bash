@@ -1,7 +1,7 @@
 #!/usr/bin/with-contenv bash
 scriptVersion="1.4.5"
 SMA_PATH="/usr/local/sma"
-GITHUB_URL="https://raw.githubusercontent.com/scottfridwin/arr-scripts/main"
+export GITHUB_URL="https://raw.githubusercontent.com/scottfridwin/arr-scripts/main"
 
 if [ -f /config/setup_version.txt ]; then
   source /config/setup_version.txt
