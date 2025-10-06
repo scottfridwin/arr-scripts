@@ -71,22 +71,37 @@ uv pip install --system --break-system-packages -r ${SMA_PATH}/setup/requirement
 mkdir -p /custom-services.d/python /config/extended
 
 export GITHUB_URL="https://raw.githubusercontent.com/scottfridwin/arr-scripts/main"
-parallel bash -c ::: \
-  'echo "Download QueueCleaner service..." && curl -sfL "${GITHUB_URL}/universal/services/QueueCleaner" -o /custom-services.d/QueueCleaner && echo "Done"' \
-  'echo "Download AutoConfig service..." && curl -sfL "${GITHUB_URL}/lidarr/AutoConfig.service.bash" -o /custom-services.d/AutoConfig && echo "Done"' \
-  'echo "Download Video service..." && curl -sfL "${GITHUB_URL}/lidarr/Video.service.bash" -o /custom-services.d/Video && echo "Done"' \
-  'echo "Download Tidal Video Downloader service..." && curl -sfL "${GITHUB_URL}/lidarr/TidalVideoDownloader.bash" -o /custom-services.d/TidalVideoDownloader && echo "Done"' \
-  'echo "Download Audio service..." && curl -sfL "${GITHUB_URL}/lidarr/Audio.service.bash" -o /custom-services.d/Audio && echo "Done"' \
-  'echo "Download AutoArtistAdder service..." && curl -sfL "${GITHUB_URL}/lidarr/AutoArtistAdder.bash" -o /custom-services.d/AutoArtistAdder && echo "Done"' \
-  'echo "Download UnmappedFilesCleaner service..." && curl -sfL "${GITHUB_URL}/lidarr/UnmappedFilesCleaner.bash" -o /custom-services.d/UnmappedFilesCleaner && echo "Done"' \
-  'echo "Download ARLChecker service..." && mkdir -p /custom-services.d/python && curl -sfL "${GITHUB_URL}/lidarr/python/ARLChecker.py" -o /custom-services.d/python/ARLChecker.py && curl -sfL "${GITHUB_URL}/lidarr/ARLChecker" -o /custom-services.d/ARLChecker && echo "Done"' \
-  'echo "Download Script Functions..." && mkdir -p /config/extended && curl -sfL "${GITHUB_URL}/universal/functions.bash" -o /config/extended/functions && echo "Done"' \
-  'echo "Download PlexNotify script..." && curl -sfL "${GITHUB_URL}/lidarr/PlexNotify.bash" -o /config/extended/PlexNotify.bash && echo "Done"' \
-  'echo "Download SMA config..." && curl -sfL "${GITHUB_URL}/lidarr/sma.ini" -o /config/extended/sma.ini && echo "Done"' \
-  'echo "Download LyricExtractor script..." && curl -sfL "${GITHUB_URL}/lidarr/LyricExtractor.bash" -o /config/extended/LyricExtractor.bash && echo "Done"' \
-  'echo "Download ArtworkExtractor script..." && curl -sfL "${GITHUB_URL}/lidarr/ArtworkExtractor.bash" -o /config/extended/ArtworkExtractor.bash && echo "Done"' \
-  'echo "Download Beets Tagger script..." && curl -sfL "${GITHUB_URL}/lidarr/BeetsTagger.bash" -o /config/extended/BeetsTagger.bash && echo "Done"'
+#!/usr/bin/env bash
+set -euo pipefail
 
+export GITHUB_URL="https://raw.githubusercontent.com/scottfridwin/arr-scripts/main"
+
+declare -A files=(
+  ["/custom-services.d/QueueCleaner"]="${GITHUB_URL}/universal/services/QueueCleaner"
+  ["/custom-services.d/AutoConfig"]="${GITHUB_URL}/lidarr/AutoConfig.service.bash"
+  ["/custom-services.d/Video"]="${GITHUB_URL}/lidarr/Video.service.bash"
+  ["/custom-services.d/TidalVideoDownloader"]="${GITHUB_URL}/lidarr/TidalVideoDownloader.bash"
+  ["/custom-services.d/Audio"]="${GITHUB_URL}/lidarr/Audio.service.bash"
+  ["/custom-services.d/AutoArtistAdder"]="${GITHUB_URL}/lidarr/AutoArtistAdder.bash"
+  ["/custom-services.d/UnmappedFilesCleaner"]="${GITHUB_URL}/lidarr/UnmappedFilesCleaner.bash"
+  ["/custom-services.d/python/ARLChecker.py"]="${GITHUB_URL}/lidarr/python/ARLChecker.py"
+  ["/custom-services.d/ARLChecker"]="${GITHUB_URL}/lidarr/ARLChecker"
+  ["/config/extended/functions"]="${GITHUB_URL}/universal/functions.bash"
+  ["/config/extended/PlexNotify.bash"]="${GITHUB_URL}/lidarr/PlexNotify.bash"
+  ["/config/extended/sma.ini"]="${GITHUB_URL}/lidarr/sma.ini"
+  ["/config/extended/LyricExtractor.bash"]="${GITHUB_URL}/lidarr/LyricExtractor.bash"
+  ["/config/extended/ArtworkExtractor.bash"]="${GITHUB_URL}/lidarr/ArtworkExtractor.bash"
+  ["/config/extended/BeetsTagger.bash"]="${GITHUB_URL}/lidarr/BeetsTagger.bash"
+)
+
+# Ensure directories exist
+mkdir -p /custom-services.d/python /config/extended
+
+for dest in "${!files[@]}"; do
+  src="${files[$dest]}"
+  echo "Downloading ${src} -> ${dest}"
+  curl -sfL "$src" -o "$dest" && echo "✅ Done: $dest" || echo "❌ Failed: $dest"
+done
 
 
 if [ ! -f /config/extended/beets-config.yaml ]; then
