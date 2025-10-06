@@ -7,8 +7,9 @@ log () {
 logfileSetup () {
   logFileName="$scriptName-$(date +"%Y_%m_%d_%I_%M_%p").txt"
 
-  # Keep only the last 2 log files for 3 active log files at any given time...
-  rm -f $(ls -1t /config/logs/$scriptName-* | tail -n +2)
+  # Keep only the last 2 log files, ignore if none exist
+  ls -1t /config/logs/"$scriptName"-* 2>/dev/null | tail -n +3 | xargs -r rm -f
+
   # delete log files older than 5 days
   find "/config/logs" -type f -iname "$scriptName-*.txt" -mtime +5 -delete
   
