@@ -663,15 +663,15 @@ DownloadProcess () {
 		ProcessWithBeets "$audioPath/incomplete"
 	fi
 
-	# Embed Lyrics into Flac files
-	find "$audioPath/incomplete" -type f -iname "*.flac" -print0 | while IFS= read -r -d '' file; do
-		lrcFile="${file%.*}.lrc"
-		if [ -f "$lrcFile" ]; then
-			log "$page :: $wantedAlbumListSource :: $processNumber of $wantedListAlbumTotal :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Embedding lyrics (lrc) into $file"
-			metaflac --remove-tag=Lyrics "$file"
-			metaflac --set-tag-from-file="Lyrics=$lrcFile" "$file"
-		fi
-	done
+	# # Embed Lyrics into Flac files
+	# find "$audioPath/incomplete" -type f -iname "*.flac" -print0 | while IFS= read -r -d '' file; do
+	# 	lrcFile="${file%.*}.lrc"
+	# 	if [ -f "$lrcFile" ]; then
+	# 		log "$page :: $wantedAlbumListSource :: $processNumber of $wantedListAlbumTotal :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Embedding lyrics (lrc) into $file"
+	# 		metaflac --remove-tag=Lyrics "$file"
+	# 		metaflac --set-tag-from-file="Lyrics=$lrcFile" "$file"
+	# 	fi
+	# done
 	
 	if [ "$audioFormat" != "native" ]; then
 		log "$page :: $wantedAlbumListSource :: $processNumber of $wantedListAlbumTotal :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Converting Flac Audio to  ${audioFormat^^} ($audioBitrateText)"
