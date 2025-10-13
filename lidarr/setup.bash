@@ -32,6 +32,7 @@ apk add -U --upgrade --no-cache \
   libc-dev \
   uv \
   parallel \
+  chromaprint \
   npm && \
 echo "*** install freyr client ***" && \
 apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/testing atomicparsley && \
