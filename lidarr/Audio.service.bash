@@ -645,6 +645,13 @@ DownloadProcess () {
 		return
 	fi
 
+	# Add the musicbrainz album id to the files
+	shopt -s nullglob   # enable
+	for file in "$audioPath"/incomplete/*.{flac,mp3,m4a,ogg,wav}; do
+		metaflac --set-tag=MUSICBRAINZ_ALBUMID="$lidarrAlbumForeignAlbumId" "$file"		
+	done
+	shopt -u nullglob   # restore default
+
 	# Log Completed Download
 	log "$page :: $wantedAlbumListSource :: $processNumber of $wantedListAlbumTotal :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Logging $1 as successfully downloaded..."
 	if [ "$2" == "DEEZER" ]; then
@@ -778,7 +785,7 @@ ProcessWithBeets () {
 	fi
 	touch "/config/beets-match"
 	sleep 0.5
-	log "DEBUG :: beet -c /config/extended/beets-config.yaml -l /config/extended/beets-library.blb -d \"$1\" import -qC \"$1\""
+
 	beet -c /config/extended/beets-config.yaml -l /config/extended/beets-library.blb -d "$1" import -qC "$1"
 	if [ $(find "$1" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "/config/beets-match" | wc -l) -gt 0 ]; then
 		log "$page :: $wantedAlbumListSource :: $processNumber of $wantedListAlbumTotal :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: SUCCESS: Matched with beets!"
