@@ -1438,14 +1438,14 @@ SearchProcess () {
 GetDeezerAlbumInfo () {
 	until false
 	do
-		log "$page :: $wantedAlbumListSource :: $processNumber of $wantedListAlbumTotal :: $lidarrArtistName :: $lidarrAlbumTitle :: Getting Album info..."
+		#log "$page :: $wantedAlbumListSource :: $processNumber of $wantedListAlbumTotal :: $lidarrArtistName :: $lidarrAlbumTitle :: Getting Album info..."
 		if [ ! -f "/config/extended/cache/deezer/$1.json" ]; then
 			curl -s "https://api.deezer.com/album/$1" -o "/config/extended/cache/deezer/$1.json"
 			sleep $sleepTimer
 		fi
 		if [ -f "/config/extended/cache/deezer/$1.json" ]; then
 			if jq -e . >/dev/null 2>&1 <<<"$(cat /config/extended/cache/deezer/$1.json)"; then
-				log "$page :: $wantedAlbumListSource :: $processNumber of $wantedListAlbumTotal :: $lidarrArtistName :: $lidarrAlbumTitle :: Album info downloaded and verified..."
+				#log "$page :: $wantedAlbumListSource :: $processNumber of $wantedListAlbumTotal :: $lidarrArtistName :: $lidarrAlbumTitle :: Album info downloaded and verified..."
 				chmod 777 /config/extended/cache/deezer/$1.json
 				albumInfoVerified=true
 				break
