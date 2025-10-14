@@ -69,7 +69,7 @@ import:
     log: /config/extended/beets.log
     languages: ['en']
     group_albums: no
-    search_ids: yes
+    search_ids: musicbrainz_albumid
 
 chroma:
     auto: yes
