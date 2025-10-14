@@ -78,21 +78,12 @@ set -euo pipefail
 export GITHUB_URL="https://raw.githubusercontent.com/scottfridwin/arr-scripts/main"
 
 declare -A files=(
-  ["/custom-services.d/QueueCleaner"]="${GITHUB_URL}/universal/services/QueueCleaner"
   ["/custom-services.d/AutoConfig"]="${GITHUB_URL}/lidarr/AutoConfig.service.bash"
-  ["/custom-services.d/Video"]="${GITHUB_URL}/lidarr/Video.service.bash"
-  ["/custom-services.d/TidalVideoDownloader"]="${GITHUB_URL}/lidarr/TidalVideoDownloader.bash"
   ["/custom-services.d/Audio"]="${GITHUB_URL}/lidarr/Audio.service.bash"
-  ["/custom-services.d/AutoArtistAdder"]="${GITHUB_URL}/lidarr/AutoArtistAdder.bash"
-  ["/custom-services.d/UnmappedFilesCleaner"]="${GITHUB_URL}/lidarr/UnmappedFilesCleaner.bash"
   ["/custom-services.d/python/ARLChecker.py"]="${GITHUB_URL}/lidarr/python/ARLChecker.py"
   ["/custom-services.d/ARLChecker"]="${GITHUB_URL}/lidarr/ARLChecker"
   ["/config/extended/functions"]="${GITHUB_URL}/universal/functions.bash"
-  ["/config/extended/PlexNotify.bash"]="${GITHUB_URL}/lidarr/PlexNotify.bash"
   ["/config/extended/sma.ini"]="${GITHUB_URL}/lidarr/sma.ini"
-  ["/config/extended/LyricExtractor.bash"]="${GITHUB_URL}/lidarr/LyricExtractor.bash"
-  ["/config/extended/ArtworkExtractor.bash"]="${GITHUB_URL}/lidarr/ArtworkExtractor.bash"
-  ["/config/extended/BeetsTagger.bash"]="${GITHUB_URL}/lidarr/BeetsTagger.bash"
 )
 
 # Ensure directories exist
@@ -105,27 +96,9 @@ for dest in "${!files[@]}"; do
 done
 
 
-if [ ! -f /config/extended/beets-config.yaml ]; then
-	echo "Download Beets config..."
-	curl -sfL "$GITHUB_URL/lidarr/beets-config.yaml" -o /config/extended/beets-config.yaml
-	echo "Done"
-fi
-
-if [ ! -f /config/extended/beets-config-lidarr.yaml ]; then
-	echo "Download Beets lidarr config..."
-	curl -sfL "$GITHUB_URL/lidarr/beets-config-lidarr.yaml" -o /config/extended/beets-config-lidarr.yaml
-	echo "Done"
-fi
-
 if [ ! -f /config/extended/deemix_config.json ]; then
   echo "Download Deemix config..."
   curl -sfL "$GITHUB_URL/lidarr/deemix_config.json" -o /config/extended/deemix_config.json
-  echo "Done"
-fi
-
-if [ ! -f /config/extended/tidal-dl.json ]; then
-  echo "Download Tidal config..."
-  curl -sfL "$GITHUB_URL/lidarr/tidal-dl.json" -o /config/extended/tidal-dl.json
   echo "Done"
 fi
 

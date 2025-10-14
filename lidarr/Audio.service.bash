@@ -303,9 +303,9 @@ NotFoundFolderCleaner () {
 RemoveEditionsFromAlbumTitle() {
     title="$1"
     # Remove trailing parentheses if they contain these keywords
-#    title=$(echo "$title" | sed -E 's/\s*\((.*(Deluxe|Remaster|Edition|Anniversary|Expanded).*)\)\s*$//I')
+    #title=$(echo "$title" | sed -E 's/\s*\((.*(Deluxe|Remaster|Edition|Anniversary|Expanded).*)\)\s*$//I')
     # Trim whitespace
-#    title=$(echo "$title" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
+    #title=$(echo "$title" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
     echo "$title"
 }
 
@@ -1333,6 +1333,7 @@ SearchProcess () {
 			#for title in ${!lidarrReleaseTitles[@]}; do
 			echo "$sorted_releases" | jq -c '.[]' | while IFS= read -r release_json; do
 				lidarrReleaseTitle=$(GetReleaseTitleDisambiguation "$release_json")
+				lidarrReleaseTrackCount=$(echo "$release_json" | jq -r ".trackCount")
 				lidarrReleaseForeignAlbumId=$(echo "$release_json" | jq -r ".foreignReleaseId")
 				releaseProcessCount=$(( $releaseProcessCount + 1))
 				#lidarrReleaseTitle="${lidarrReleaseTitles[$title]}"
@@ -1491,56 +1492,11 @@ ArtistDeezerSearch () {
 	
 	log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Artist Search :: Deezer :: $type :: $lidarrReleaseTitle :: Searching $2... (Track Count: $lidarrAlbumReleasesMinTrackCount-$lidarrAlbumReleasesMaxTrackCount)..."		
 	log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Artist Search :: Deezer :: $type :: $lidarrReleaseTitle :: Filtering results by lyric type..."
-	deezerArtistAlbumsData=$(cat "/config/extended/cache/deezer/$2-albums.json" | jq -r .data[])
-	deezerArtistAlbumsIds=$(echo "${deezerArtistAlbumsData}" | jq -r "select(.explicit_lyrics=="$3") | .id")
+	deezerArtistAlbumsData=$(cat "/config/extended/cache/deezer/$2-albums.json" | jq -c ".data | map(select(.explicit_lyrics == $3))")
 
-	resultsCount=$(echo "$deezerArtistAlbumsIds" | wc -l)
+	resultsCount=$(echo "$deezerArtistAlbumsData" | jq 'length')
 	log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Artist Search :: Deezer :: $type :: $lidarrReleaseTitle :: $resultsCount search results found"
-	for deezerAlbumID in $(echo "$deezerArtistAlbumsIds"); do
-		deezerAlbumData="$(echo "$deezerArtistAlbumsData" | jq -r "select(.id==$deezerAlbumID)")"
-		deezerAlbumTitle="$(echo "$deezerAlbumData" | jq -r ".title")"
-		# --- Add edition stripping ---
-		deezerAlbumTitleEditionless=$(RemoveEditionsFromAlbumTitle "$deezerAlbumTitle")
-		deezerAlbumTitleClean="$(echo ${deezerAlbumTitleEditionless} | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
-  		#deezerAlbumTitleClean="$(echo ${deezerAlbumTitle} | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
-  		# --- End ---
-		deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"		
-		GetDeezerAlbumInfo "$deezerAlbumID"
-		deezerAlbumData="$(cat "/config/extended/cache/deezer/$deezerAlbumID.json")"
-		deezerAlbumTrackCount="$(echo "$deezerAlbumData" | jq -r .nb_tracks)"
-		deezerAlbumExplicitLyrics="$(echo "$deezerAlbumData" | jq -r .explicit_lyrics)"								
-		downloadedReleaseDate="$(echo "$deezerAlbumData" | jq -r .release_date)"
-		downloadedReleaseYear="${downloadedReleaseDate:0:4}"
-
-		# Reject release if greater than the max track count
-		if [ "$deezerAlbumTrackCount" -gt "$lidarrAlbumReleasesMaxTrackCount" ]; then
-			continue
-		fi
-
-		# Reject release if less than the min track count
-		if [ "$deezerAlbumTrackCount" -lt "$lidarrAlbumReleasesMinTrackCount" ]; then
-			continue
-		fi
-		
-		log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Artist Search :: Deezer :: $type :: $lidarrReleaseTitle :: $lidarrAlbumReleaseTitleClean vs $deezerAlbumTitleClean :: Checking for Match..."
-		log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Artist Search :: Deezer :: $type :: $lidarrReleaseTitle :: $lidarrAlbumReleaseTitleClean vs $deezerAlbumTitleClean :: Calculating Damerau-Levenshtein distance..."
-		diff=$(python -c "from pyxdameraulevenshtein import damerau_levenshtein_distance; print(damerau_levenshtein_distance(\"${lidarrAlbumReleaseTitleClean,,}\", \"${deezerAlbumTitleClean,,}\"))" 2>/dev/null)
-		if [ "$diff" -le "$matchDistance" ]; then
-			log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Artist Search :: Deezer :: $type :: $lidarrReleaseTitle :: $lidarrAlbumReleaseTitleClean vs $deezerAlbumTitleClean :: Deezer MATCH Found :: Calculated Difference = $diff"
-
-			# Execute Download
-			log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Artist Search :: Deezer  :: $type :: $lidarrReleaseTitle :: Downloading $deezerAlbumTrackCount Tracks :: $deezerAlbumTitle ($downloadedReleaseYear)"
-			
-			DownloadProcess "$deezerAlbumID" "DEEZER" "$downloadedReleaseYear" "$deezerAlbumTitle" "$deezerAlbumTrackCount"
-		else
-			log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Artist Search :: Deezer :: $type :: $lidarrReleaseTitle :: $lidarrAlbumReleaseTitleClean vs $deezerAlbumTitleClean :: Deezer  Match Not Found :: Calculated Difference ($diff) greater than $matchDistance"
-		fi
-
-		# End search if lidarr was successfully notified for import
-		if [ "$lidarrDownloadImportNotfication" == "true" ]; then
-			break
-		fi
-	done	
+	DownloadBestMatch "$deezerArtistAlbumsData"
 }
 
 FuzzyDeezerSearch () {
@@ -1568,62 +1524,108 @@ FuzzyDeezerSearch () {
 		# Search with Artist for non VA albums
 		deezerSearch=$(curl -s "https://api.deezer.com/search?q=artist:%22${albumArtistNameSearch}%22%20album:%22${albumTitleSearch}%22&strict=on&limit=20" | jq -r ".data[]")
 	fi
-	resultsCount=$(echo "$deezerSearch" | jq -r .album.id | sort -u | wc -l)
+	resultsCount=$(echo "$deezerSearch" | jq 'map(.album.id) | unique | length')
 	log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: $resultsCount search results found"
 	if [ ! -z "$deezerSearch" ]; then
-		for deezerAlbumID in $(echo "$deezerSearch" | jq -r .album.id | sort -u); do
-			deezerAlbumData="$(echo "$deezerSearch" | jq -r ".album | select(.id==$deezerAlbumID)")"
-			deezerAlbumTitle="$(echo "$deezerAlbumData" | jq -r ".title")"
-			deezerAlbumTitle="$(echo "$deezerAlbumTitle" | head -n1)"
-			# --- Add edition stripping ---
-			deezerAlbumTitleEditionless=$(RemoveEditionsFromAlbumTitle "$deezerAlbumTitle")
-			deezerAlbumTitleClean="$(echo ${deezerAlbumTitleEditionless} | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
-	  		#deezerAlbumTitleClean="$(echo ${deezerAlbumTitle} | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
-	  		# --- End ---
-			deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"
-
-			GetDeezerAlbumInfo "${deezerAlbumID}"
-			deezerAlbumData="$(cat "/config/extended/cache/deezer/$deezerAlbumID.json")"
-			deezerAlbumTrackCount="$(echo "$deezerAlbumData" | jq -r .nb_tracks)"
-			deezerAlbumExplicitLyrics="$(echo "$deezerAlbumData" | jq -r .explicit_lyrics)"								
-			downloadedReleaseDate="$(echo "$deezerAlbumData" | jq -r .release_date)"
-			downloadedReleaseYear="${downloadedReleaseDate:0:4}"
-
-			if [ "$deezerAlbumExplicitLyrics" != "$2" ]; then
-				continue
-			fi
-
-			# Reject release if greater than the max track count
-			if [ "$deezerAlbumTrackCount" -gt "$lidarrAlbumReleasesMaxTrackCount" ]; then
-				continue
-			fi
-
-			# Reject release if less than the min track count
-			if [ "$deezerAlbumTrackCount" -lt "$lidarrAlbumReleasesMinTrackCount" ]; then
-				continue
-			fi
-
-			log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: $lidarrAlbumReleaseTitleClean vs $deezerAlbumTitleClean :: Checking for Match..."
-			log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: $lidarrAlbumReleaseTitleClean vs $deezerAlbumTitleClean :: Calculating Damerau-Levenshtein distance..."
-			diff=$(python -c "from pyxdameraulevenshtein import damerau_levenshtein_distance; print(damerau_levenshtein_distance(\"${lidarrAlbumReleaseTitleClean,,}\", \"${deezerAlbumTitleClean,,}\"))" 2>/dev/null)
-			if [ "$diff" -le "$matchDistance" ]; then
-				log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: $lidarrAlbumReleaseTitleClean vs $deezerAlbumTitleClean :: Deezer MATCH Found :: Calculated Difference = $diff"
-				log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: Downloading $deezerAlbumTrackCount Tracks :: $deezerAlbumTitle ($downloadedReleaseYear)"
-				
-				DownloadProcess "$deezerAlbumID" "DEEZER" "$downloadedReleaseYear" "$deezerAlbumTitle" "$deezerAlbumTrackCount"
-			else
-				log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: $lidarrAlbumReleaseTitleClean vs $deezerAlbumTitleClean :: Deezer  Match Not Found :: Calculated Difference ($diff) greater than $matchDistance"
-			fi
-			# End search if lidarr was successfully notified for import
-			if [ "$lidarrDownloadImportNotfication" == "true" ]; then
-				break
-			fi
-		done
-		log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: ERROR :: Results found, but none matching search criteria..."
+		albumsJson=$(echo "$deezerSearch" | jq '[.[].album] | unique_by(.id)')
+		DownloadBestMatch "$albumsJson"
 	else
 		log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: ERROR :: No results found via Fuzzy Search..."
 	fi
-	
+}
+
+DownloadBestMatch() {
+	# Required Inputs
+	# $1 Process ID
+	# $2 JSON array containing list of albums to check
+
+	local albums="$1"
+	local albumCount
+	albumCount=$(echo "$albums" | jq 'length')
+
+	local bestMatchID=""
+	local bestMatchTitle=""
+	local bestMatchYear=""
+	local bestMatchDistance=9999
+	local bestMatchTrackDiff=9999
+
+	for ((i=0; i<albumCount; i++)); do
+		local deezerAlbumData deezerAlbumID deezerAlbumTitle deezerAlbumTitleClean
+		local deezerAlbumTrackCount downloadedReleaseDate downloadedReleaseYear
+
+		deezerAlbumData=$(echo "$albums" | jq -c ".[$i]")
+		deezerAlbumID=$(echo "$deezerAlbumData" | jq -r ".id")
+		deezerAlbumTitle=$(echo "$deezerAlbumData" | jq -r ".title" | head -n1)
+
+		# --- Normalize title ---
+		local deezerAlbumTitleEditionless
+		deezerAlbumTitleEditionless=$(RemoveEditionsFromAlbumTitle "$deezerAlbumTitle")
+		deezerAlbumTitleClean="$(echo "$deezerAlbumTitleEditionless" \
+			| sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" \
+			| sed 's/^[.]*//' | sed 's/[.]*$//' | sed 's/^ *//' | sed 's/ *$//')"
+		deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"
+
+		GetDeezerAlbumInfo "$deezerAlbumID"
+		deezerAlbumData="$(cat "/config/extended/cache/deezer/$deezerAlbumID.json")"
+		deezerAlbumTrackCount="$(echo "$deezerAlbumData" | jq -r .nb_tracks)"
+		downloadedReleaseDate="$(echo "$deezerAlbumData" | jq -r .release_date)"
+		downloadedReleaseYear="${downloadedReleaseDate:0:4}"
+
+		# Reject releases outside track count limits
+		if [ "$deezerAlbumTrackCount" -gt "$lidarrAlbumReleasesMaxTrackCount" ] || \
+		   [ "$deezerAlbumTrackCount" -lt "$lidarrAlbumReleasesMinTrackCount" ]; then
+			continue
+		fi
+
+		local trackNumberMatch=0
+		[ "$deezerAlbumTrackCount" -eq "$lidarrReleaseTrackCount" ] && trackNumberMatch=1
+
+		diff=$(python -c "from pyxdameraulevenshtein import damerau_levenshtein_distance; print(damerau_levenshtein_distance(\"${lidarrAlbumReleaseTitleClean,,}\", \"${deezerAlbumTitleClean,,}\"))" 2>/dev/null)
+		local trackDiff=$(( lidarrReleaseTrackCount > deezerAlbumTrackCount ? lidarrReleaseTrackCount - deezerAlbumTrackCount : deezerAlbumTrackCount - lidarrReleaseTrackCount ))
+
+		log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: DL Dist=$diff TrackDiff=$trackDiff ($deezerAlbumTrackCount tracks)"
+
+		# Perfect match — stop immediately
+		if [ "$diff" -eq 0 ] && [ "$trackNumberMatch" -eq 1 ]; then
+			bestMatchID="$deezerAlbumID"
+			bestMatchTitle="$deezerAlbumTitle"
+			bestMatchYear="$downloadedReleaseYear"
+			log "$1 :: PERFECT MATCH :: $bestMatchTitle ($bestMatchYear)"
+			break
+		fi
+
+		# --- Track best match so far with tiebreaker ---
+		if [ "$diff" -lt "$bestMatchDistance" ]; then
+			bestMatchID="$deezerAlbumID"
+			bestMatchTitle="$deezerAlbumTitle"
+			bestMatchYear="$downloadedReleaseYear"
+			bestMatchDistance="$diff"
+			bestMatchTrackDiff="$trackDiff"
+
+		elif [ "$diff" -eq "$bestMatchDistance" ] && [ "$trackDiff" -lt "$bestMatchTrackDiff" ]; then
+			# Same title distance, but closer track count → prefer this
+			bestMatchID="$deezerAlbumID"
+			bestMatchTitle="$deezerAlbumTitle"
+			bestMatchYear="$downloadedReleaseYear"
+			bestMatchTrackDiff="$trackDiff"
+		fi
+
+		# Optional: stop early if Lidarr already imported
+		if [ "$lidarrDownloadImportNotfication" == "true" ]; then
+			break
+		fi
+	done
+
+	# ✅ After loop — use best match
+	if [ -n "$bestMatchID" ]; then
+		log "$1 :: Using best match :: $bestMatchTitle ($bestMatchYear) :: Distance=$bestMatchDistance TrackDiff=$bestMatchTrackDiff"
+		GetDeezerAlbumInfo "$bestMatchID"
+		deezerAlbumData="$(cat "/config/extended/cache/deezer/$bestMatchID.json")"
+		deezerAlbumTrackCount="$(echo "$deezerAlbumData" | jq -r .nb_tracks)"
+		DownloadProcess "$bestMatchID" "DEEZER" "$bestMatchYear" "$bestMatchTitle" "$deezerAlbumTrackCount"
+	else
+		log "$1 :: No suitable match found."
+	fi
 }
 
 ArtistTidalSearch () {
