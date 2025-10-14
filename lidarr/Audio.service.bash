@@ -309,6 +309,19 @@ RemoveEditionsFromAlbumTitle() {
     echo "$title"
 }
 
+GetReleaseTitleDisambiguation() {
+	local release_json="$1"
+	local releaseTitle releaseDisambiguation
+	releaseTitle=$(echo "$release_json" | jq -r '.title')
+	releaseDisambiguation=$(echo "$release_json" | jq -r '.disambiguation')
+	if [ -z "$releaseDisambiguation" ] || [ "$releaseDisambiguation" == "null" ]; then
+		releaseDisambiguation=""
+	else
+		releaseDisambiguation=" ($releaseDisambiguation)"
+	fi
+	echo "${releaseTitle}${releaseDisambiguation}"
+}
+
 TidalClientSetup () {
 	log "TIDAL :: Verifying tidal-dl configuration"
 	touch /config/xdg/.tidal-dl.log
@@ -648,7 +661,8 @@ DownloadProcess () {
 	# Add the musicbrainz album id to the files
 	shopt -s nullglob   # enable
 	for file in "$audioPath"/incomplete/*.{flac,mp3,m4a,ogg,wav}; do
-		metaflac --set-tag=MUSICBRAINZ_ALBUMID="$lidarrAlbumForeignAlbumId" "$file"		
+		metaflac --set-tag=MUSICBRAINZ_ALBUMID="$lidarrReleaseForeignAlbumId" "$file"
+		metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$lidarrAlbumForeignAlbumId" "$file"		
 	done
 	shopt -u nullglob   # restore default
 
@@ -1193,7 +1207,7 @@ SearchProcess () {
 		tidalArtistUrl=$(echo "${lidarrArtistData}" | jq -r ".links | .[] | select(.name==\"tidal\") | .url")
 		tidalArtistIds="$(echo "$tidalArtistUrl" | grep -o '[[:digit:]]*' | sort -u)"
 		deezerArtistUrl=$(echo "${lidarrArtistData}" | jq -r ".links | .[] | select(.name==\"deezer\") | .url")
-		lidarrAlbumReleaseIds=$(echo "$lidarrAlbumData" | jq -r ".releases | sort_by(.trackCount) | reverse | .[].id")
+		lidarrAlbumReleaseIds=$(echo "$lidarrAlbumData" | jq -r ".releases | sort_by(.trackCount) | reverse | .[].id") # sorted by track count, highest first to get the most complete release
 		lidarrAlbumReleasesMinTrackCount=$(echo "$lidarrAlbumData" | jq -r ".releases[].trackCount" | sort -n | head -n1)
 		lidarrAlbumReleasesMaxTrackCount=$(echo "$lidarrAlbumData" | jq -r ".releases[].trackCount" | sort -n -r | head -n1)
 		lidarrAlbumReleaseDate=$(echo "$lidarrAlbumData" | jq -r .releaseDate)
@@ -1275,47 +1289,53 @@ SearchProcess () {
 
 
 		# Get Release Titles & Disambiguation
-		if [ -f /temp-release-list ]; then
-			rm /temp-release-list 
-		fi
-		for releaseId in $(echo "$lidarrAlbumReleaseIds"); do
-			releaseTitle=$(echo "$lidarrAlbumData" | jq -r ".releases[] | select(.id==$releaseId) | .title")
-			releaseDisambiguation=$(echo "$lidarrAlbumData" | jq -r ".releases[] | select(.id==$releaseId) | .disambiguation")
-			# --- Change logic ---
-			if [ -z "$releaseDisambiguation" ] || [ "$releaseDisambiguation" == "null" ]; then
-			#if [ -z "$releaseDisambiguation" ]; then
-			# --- End ---
-				releaseDisambiguation=""
-			else
-				releaseDisambiguation=" ($releaseDisambiguation)" 
-			fi
-			echo "${releaseTitle}${releaseDisambiguation}" >> /temp-release-list 
-		done
-  		echo "$lidarrAlbumTitle" >> /temp-release-list 
+		# if [ -f /temp-release-list ]; then
+		# 	rm /temp-release-list 
+		# fi
+		# for releaseId in $(echo "$lidarrAlbumReleaseIds"); do
+		# 	releaseTitle=$(echo "$lidarrAlbumData" | jq -r ".releases[] | select(.id==$releaseId) | .title")
+		# 	releaseDisambiguation=$(echo "$lidarrAlbumData" | jq -r ".releases[] | select(.id==$releaseId) | .disambiguation")
+		# 	# --- Change logic ---
+		# 	if [ -z "$releaseDisambiguation" ] || [ "$releaseDisambiguation" == "null" ]; then
+		# 	#if [ -z "$releaseDisambiguation" ]; then
+		# 	# --- End ---
+		# 		releaseDisambiguation=""
+		# 	else
+		# 		releaseDisambiguation=" ($releaseDisambiguation)" 
+		# 	fi
+		# 	echo "${releaseTitle}${releaseDisambiguation}" >> /temp-release-list 
+		# done
+  		# echo "$lidarrAlbumTitle" >> /temp-release-list 
 
-		# --- Add MusicBrainz Aliases ---
-		mbid=$(echo "$lidarrAlbumData" | jq -r '.foreignAlbumId')
+		# # --- Add MusicBrainz Aliases ---
+		# mbid=$(echo "$lidarrAlbumData" | jq -r '.foreignAlbumId')
 
-		if [ -n "$mbid" ] && [ "$mbid" != "null" ]; then
-			log "Fetching alternate titles from MusicBrainz for MBID $mbid"
-			curl -s "https://musicbrainz.org/ws/2/release-group/${mbid}?inc=aliases&fmt=json" \
-				| jq -r '.aliases[].name' \
-				| grep -v '^null$' \
-				| sort -u \
-				>> /temp-release-list
-		fi
-		# --- End ---
+		# if [ -n "$mbid" ] && [ "$mbid" != "null" ]; then
+		# 	log "Fetching alternate titles from MusicBrainz for MBID $mbid"
+		# 	curl -s "https://musicbrainz.org/ws/2/release-group/${mbid}?inc=aliases&fmt=json" \
+		# 		| jq -r '.aliases[].name' \
+		# 		| grep -v '^null$' \
+		# 		| sort -u \
+		# 		>> /temp-release-list
+		# fi
+		# # --- End ---
 
 		# Get Release Titles
-		OLDIFS="$IFS"
-		IFS=$'\n'
+		# OLDIFS="$IFS"
+		# IFS=$'\n'
+		# if [ "$preferSpecialEditions" == "true" ]; then
+		#   lidarrReleaseTitles=$(cat /temp-release-list | awk '{ print length, $0 }' | sort -u -n -s -r | cut -d" " -f2-)
+	    # else
+		#   lidarrReleaseTitles=$(cat /temp-release-list | awk '{ print length, $0 }' | sort -u -n -s | cut -d" " -f2-)
+		# fi
+		# lidarrReleaseTitles=($(echo "$lidarrReleaseTitles"))
+		# IFS="$OLDIFS"
+
 		if [ "$preferSpecialEditions" == "true" ]; then
-		  lidarrReleaseTitles=$(cat /temp-release-list | awk '{ print length, $0 }' | sort -u -n -s -r | cut -d" " -f2-)
-	    else
-		  lidarrReleaseTitles=$(cat /temp-release-list | awk '{ print length, $0 }' | sort -u -n -s | cut -d" " -f2-)
+			sorted_releases=$(echo "$lidarrAlbumData" | jq '{releases: (.releases | sort_by(.title))}')
+		else
+			sorted_releases=$(echo "$lidarrAlbumData" | jq '{releases: (.releases | sort_by(.title) | reverse)}')
 		fi
-		lidarrReleaseTitles=($(echo "$lidarrReleaseTitles"))
-		IFS="$OLDIFS"
 
 		loopCount=0
 		until false
@@ -1336,9 +1356,12 @@ SearchProcess () {
 			
 			lidarrDownloadImportNotfication="false"
 			releaseProcessCount=0
-			for title in ${!lidarrReleaseTitles[@]}; do
+			#for title in ${!lidarrReleaseTitles[@]}; do
+			for release_json in $(echo "$sorted_releases" | jq -c '.[]'); do
+				lidarrReleaseTitle=$(release_title_disambiguation "$release_json")
+				lidarrReleaseForeignAlbumId=$(echo "$release_json" | jq -r ".foreignReleaseId")
 				releaseProcessCount=$(( $releaseProcessCount + 1))
-				lidarrReleaseTitle="${lidarrReleaseTitles[$title]}"
+				#lidarrReleaseTitle="${lidarrReleaseTitles[$title]}"
 				lidarrAlbumReleaseTitleClean=$(echo "$lidarrReleaseTitle" | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')
     			lidarrAlbumReleaseTitleClean="${lidarrAlbumReleaseTitleClean:0:130}"
 				lidarrAlbumReleaseTitleSearchClean="$(echo "$lidarrReleaseTitle" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
