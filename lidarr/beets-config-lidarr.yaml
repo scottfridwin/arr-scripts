@@ -1,9 +1,12 @@
-plugins: chroma embedart lastgenre importadded lyrics
+plugins: musicbrainz chroma embedart lastgenre lyrics
 art_filename: folder
 threaded: yes
 per_disc_numbering: yes
 id3v23: no
 asciify_paths: true
+
+musicbrainz:
+    search_limit: 100
 
 lyrics:
     auto: yes
