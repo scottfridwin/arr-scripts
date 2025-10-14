@@ -1496,7 +1496,7 @@ ArtistDeezerSearch () {
 
 	resultsCount=$(echo "$deezerArtistAlbumsData" | jq 'length')
 	log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Artist Search :: Deezer :: $type :: $lidarrReleaseTitle :: $resultsCount search results found"
-	DownloadBestMatch "$deezerArtistAlbumsData"
+	echo "$deezerArtistAlbumsData" | DownloadBestMatch "$1"
 }
 
 FuzzyDeezerSearch () {
@@ -1528,7 +1528,7 @@ FuzzyDeezerSearch () {
 	log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: $resultsCount search results found"
 	if [ ! -z "$deezerSearch" ]; then
 		albumsJson=$(echo "$deezerSearch" | jq '[.[].album] | unique_by(.id)')
-		DownloadBestMatch "$albumsJson"
+		echo "$albumsJson" | DownloadBestMatch "$1"
 	else
 		log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: $lidarrAlbumType :: Fuzzy Search :: Deezer :: $type :: $lidarrReleaseTitle :: ERROR :: No results found via Fuzzy Search..."
 	fi
@@ -1537,11 +1537,13 @@ FuzzyDeezerSearch () {
 DownloadBestMatch() {
 	# Required Inputs
 	# $1 Process ID
-	# $2 JSON array containing list of albums to check
+	# stdin - JSON array containing list of albums to check
 
-	local albums="$1"
-	local albumCount
-	albumCount=$(echo "$albums" | jq 'length')
+	local albums
+    albums=$(cat)  # read JSON array from stdin
+
+    local albumCount
+    albumCount=$(echo "$albums" | jq 'length')
 
 	local bestMatchID=""
 	local bestMatchTitle=""
@@ -1574,6 +1576,7 @@ DownloadBestMatch() {
 		# Reject releases outside track count limits
 		if [ "$deezerAlbumTrackCount" -gt "$lidarrAlbumReleasesMaxTrackCount" ] || \
 		   [ "$deezerAlbumTrackCount" -lt "$lidarrAlbumReleasesMinTrackCount" ]; then
+		   	log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: Skipping album with $deezerAlbumTrackCount tracks (outside $lidarrAlbumReleasesMinTrackCount-$lidarrAlbumReleasesMaxTrackCount range)"
 			continue
 		fi
 
@@ -1584,6 +1587,13 @@ DownloadBestMatch() {
 		local trackDiff=$(( lidarrReleaseTrackCount > deezerAlbumTrackCount ? lidarrReleaseTrackCount - deezerAlbumTrackCount : deezerAlbumTrackCount - lidarrReleaseTrackCount ))
 
 		log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: DL Dist=$diff TrackDiff=$trackDiff ($deezerAlbumTrackCount tracks)"
+
+		if [ "$diff" -le "$matchDistance" ]; then
+			log "$1 :: $lidarrArtistName :: $lidarrAlbumTitle :: Potential match found :: $deezerAlbumTitle ($downloadedReleaseYear) :: Distance=$diff TrackDiff=$trackDiff"
+		else
+			# Too distant title
+			continue
+		fi
 
 		# Perfect match — stop immediately
 		if [ "$diff" -eq 0 ] && [ "$trackNumberMatch" -eq 1 ]; then
