@@ -1358,7 +1358,7 @@ SearchProcess () {
 			releaseProcessCount=0
 			#for title in ${!lidarrReleaseTitles[@]}; do
 			for release_json in $(echo "$sorted_releases" | jq -c '.[]'); do
-				lidarrReleaseTitle=$(release_title_disambiguation "$release_json")
+				lidarrReleaseTitle=$(GetReleaseTitleDisambiguation "$release_json")
 				lidarrReleaseForeignAlbumId=$(echo "$release_json" | jq -r ".foreignReleaseId")
 				releaseProcessCount=$(( $releaseProcessCount + 1))
 				#lidarrReleaseTitle="${lidarrReleaseTitles[$title]}"
