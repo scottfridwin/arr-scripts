@@ -102,12 +102,6 @@ if [ ! -f /config/extended/deemix_config.json ]; then
   echo "Done"
 fi
 
-if [ ! -f /config/extended/beets-genre-whitelist.txt ]; then
-	echo "Download beets-genre-whitelist.txt..."
-	curl -sfL $GITHUB_URL/lidarr/beets-genre-whitelist.txt -o /config/extended/beets-genre-whitelist.txt
-	echo "Done"
-fi
-
 if [ ! -f /config/extended.conf ]; then
 	echo "Download Extended config..."
 	curl -sfL $GITHUB_URL/lidarr/extended.conf -o /config/extended.conf
