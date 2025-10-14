@@ -1287,55 +1287,29 @@ SearchProcess () {
 			endLoop="1"
 		fi
 
-
-		# Get Release Titles & Disambiguation
-		# if [ -f /temp-release-list ]; then
-		# 	rm /temp-release-list 
-		# fi
-		# for releaseId in $(echo "$lidarrAlbumReleaseIds"); do
-		# 	releaseTitle=$(echo "$lidarrAlbumData" | jq -r ".releases[] | select(.id==$releaseId) | .title")
-		# 	releaseDisambiguation=$(echo "$lidarrAlbumData" | jq -r ".releases[] | select(.id==$releaseId) | .disambiguation")
-		# 	# --- Change logic ---
-		# 	if [ -z "$releaseDisambiguation" ] || [ "$releaseDisambiguation" == "null" ]; then
-		# 	#if [ -z "$releaseDisambiguation" ]; then
-		# 	# --- End ---
-		# 		releaseDisambiguation=""
-		# 	else
-		# 		releaseDisambiguation=" ($releaseDisambiguation)" 
-		# 	fi
-		# 	echo "${releaseTitle}${releaseDisambiguation}" >> /temp-release-list 
+		# echo "$lidarrAlbumData" | jq -c '.releases[]' | while IFS= read -r release_json; do
+		# 	log "DEBUG :: before sort :: $release_json"
 		# done
-  		# echo "$lidarrAlbumTitle" >> /temp-release-list 
+		jq_filter_special="[.releases[]
+		| .normalized_title = (.title | ascii_downcase)
+		| .title_length = (.title | length)
+		| .rank = (if (.normalized_title | test(\"deluxe|expanded|special|remaster\")) then 0 else 1 end)
+		] | sort_by(-.trackCount, .rank, -.title_length)"
 
-		# # --- Add MusicBrainz Aliases ---
-		# mbid=$(echo "$lidarrAlbumData" | jq -r '.foreignAlbumId')
-
-		# if [ -n "$mbid" ] && [ "$mbid" != "null" ]; then
-		# 	log "Fetching alternate titles from MusicBrainz for MBID $mbid"
-		# 	curl -s "https://musicbrainz.org/ws/2/release-group/${mbid}?inc=aliases&fmt=json" \
-		# 		| jq -r '.aliases[].name' \
-		# 		| grep -v '^null$' \
-		# 		| sort -u \
-		# 		>> /temp-release-list
-		# fi
-		# # --- End ---
-
-		# Get Release Titles
-		# OLDIFS="$IFS"
-		# IFS=$'\n'
-		# if [ "$preferSpecialEditions" == "true" ]; then
-		#   lidarrReleaseTitles=$(cat /temp-release-list | awk '{ print length, $0 }' | sort -u -n -s -r | cut -d" " -f2-)
-	    # else
-		#   lidarrReleaseTitles=$(cat /temp-release-list | awk '{ print length, $0 }' | sort -u -n -s | cut -d" " -f2-)
-		# fi
-		# lidarrReleaseTitles=($(echo "$lidarrReleaseTitles"))
-		# IFS="$OLDIFS"
+		jq_filter_normal="[.releases[]
+		| .normalized_title = (.title | ascii_downcase)
+		| .title_length = (.title | length)
+		| .rank = (if (.normalized_title | test(\"deluxe|expanded|special|remaster\")) then 1 else 0 end)
+		] | sort_by(-.trackCount, .rank, .title_length)"
 
 		if [ "$preferSpecialEditions" == "true" ]; then
-			sorted_releases=$(echo "$lidarrAlbumData" | jq '{releases: (.releases | sort_by(.title))}')
+			sorted_releases=$(echo "$lidarrAlbumData" | jq -c "$jq_filter_special")
 		else
-			sorted_releases=$(echo "$lidarrAlbumData" | jq '{releases: (.releases | sort_by(.title) | reverse)}')
+			sorted_releases=$(echo "$lidarrAlbumData" | jq -c "$jq_filter_normal")
 		fi
+		# echo "$sorted_releases" | jq -c '.[]' | while IFS= read -r release_json; do
+		# 	log "DEBUG :: after sort :: $release_json"
+		# done
 
 		loopCount=0
 		until false
@@ -1357,7 +1331,7 @@ SearchProcess () {
 			lidarrDownloadImportNotfication="false"
 			releaseProcessCount=0
 			#for title in ${!lidarrReleaseTitles[@]}; do
-			for release_json in $(echo "$sorted_releases" | jq -c '.[]'); do
+			echo "$sorted_releases" | jq -c '.[]' | while IFS= read -r release_json; do
 				lidarrReleaseTitle=$(GetReleaseTitleDisambiguation "$release_json")
 				lidarrReleaseForeignAlbumId=$(echo "$release_json" | jq -r ".foreignReleaseId")
 				releaseProcessCount=$(( $releaseProcessCount + 1))
