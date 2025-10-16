@@ -207,6 +207,7 @@ AddLidarrTags () {
 
 # Add custom download client if it doesn't already exist
 AddLidarrDownloadClient() {
+    log "TRACE :: Entering AddLidarrDownloadClient..."
 	local downloadClientsData downloadClientCheck httpCode
 
 	# Get list of existing download clients
@@ -246,6 +247,7 @@ EOF
 	else
 		log "INFO :: ${AUDIO_DOWNLOADCLIENT_NAME} download client already exists, skipping creation."
 	fi
+    log "TRACE :: Exiting AddLidarrDownloadClient..."
 }
 
 # Clean up old notfound entries to allow retries

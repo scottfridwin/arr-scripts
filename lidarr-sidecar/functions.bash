@@ -1,15 +1,15 @@
-declare -A LOG_PRIORITY=( ["DEBUG"]=0 ["INFO"]=1 ["WARNING"]=2 ["ERROR"]=3 )
+declare -A LOG_PRIORITY=( ["TRACE"]=0 ["DEBUG"]=1 ["INFO"]=2 ["WARNING"]=3 ["ERROR"]=4 )
 lidarrApiKey=""
 lidarrUrl=""
 lidarrApiVersion=""
 
 # Logs messages with levels and respects LOG_LEVEL setting
 log () {
-    # $1 -> the log message, starting with level (DEBUG, INFO, WARNING, ERROR)
+    # $1 -> the log message, starting with level (TRACE, DEBUG, INFO, WARNING, ERROR)
     local msg="$1"
 
     # Ensure message starts with a valid level
-    if [[ ! "$msg" =~ ^(DEBUG|INFO|WARNING|ERROR) ]]; then
+    if [[ ! "$msg" =~ ^(TRACE|DEBUG|INFO|WARNING|ERROR) ]]; then
         echo "CRITICAL :: $scriptName :: v$scriptVersion :: Invalid log message format: '$msg'" >&2
         exit 1
     fi
@@ -36,8 +36,9 @@ setUnhealthy () {
 
 # Validates essential environment variables
 validateEnvironment() {
-  [[ "${LOG_LEVEL}" =~ ^(DEBUG|INFO|WARNING|ERROR)$ ]] || {
-      echo "CRITICAL :: $scriptName :: v$scriptVersion :: Invalid LOG_LEVEL value: '${LOG_LEVEL}'. Must be one of: DEBUG, INFO, WARNING, ERROR" >&2
+  log "TRACE :: Entering validateEnvironment..."
+  [[ "${LOG_LEVEL}" =~ ^(TRACE|DEBUG|INFO|WARNING|ERROR)$ ]] || {
+      echo "CRITICAL :: $scriptName :: v$scriptVersion :: Invalid LOG_LEVEL value: '${LOG_LEVEL}'. Must be one of: TRACE, DEBUG, INFO, WARNING, ERROR" >&2
       setUnhealthy
       exit 1
   }
@@ -46,47 +47,53 @@ validateEnvironment() {
       setUnhealthy
       exit 1
   }
+  log "TRACE :: Exiting validateEnvironment..."
 }
 
 # Retrieves the Lidarr API key from the config file
 getLidarrApiKey() {
-  [[ -n "$lidarrApiKey" ]] && return 0  # already set
+  log "TRACE :: Entering getLidarrApiKey..."
+  if [[ -n "${lidarrApiKey}" ]]; then
+    lidarrApiKey="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.ApiKey)"
+    if [ -z "$lidarrApiKey" ] || [ "$lidarrApiKey" == "null" ]; then
+      log "ERROR :: Unable to retrieve Lidarr API key from configuration file: $LIDARR_CONFIG_PATH"
+      setUnhealthy
+      exit 1
+    fi
 
-  lidarrApiKey="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.ApiKey)"
-  if [ -z "$lidarrApiKey" ] || [ "$lidarrApiKey" == "null" ]; then
-    log "ERROR :: Unable to retrieve Lidarr API key from configuration file: $LIDARR_CONFIG_PATH"
-    setUnhealthy
-    exit 1
+    [[ -n "$lidarrApiKey" ]] && log "DEBUG :: lidarrApiKey successfully set"
   fi
-
-  [[ -n "$lidarrApiKey" ]] && log "DEBUG :: lidarrApiKey successfully set"
+  log "TRACE :: Exiting getLidarrApiKey..."
 }
 
 # Constructs the Lidarr base URL from environment variables and config file
 getLidarrUrl() {
-  [[ -n "$lidarrUrl" ]] && return 0  # already set
+  log "TRACE :: Entering getLidarrUrl..."
+  if [[ -n "${lidarrUrl}" ]]; then
+    # Get Lidarr base URL. Usually blank, but can be set in Lidarr settings.
+    local lidarrUrlBase="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.UrlBase)"
+    if [ "$lidarrUrlBase" == "null" ]; then
+      lidarrUrlBase=""
+    else
+      lidarrUrlBase="/$(echo "$lidarrUrlBase" | sed "s/\///")"
+    fi
 
-  # Get Lidarr base URL. Usually blank, but can be set in Lidarr settings.
-  local lidarrUrlBase="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.UrlBase)"
-  if [ "$lidarrUrlBase" == "null" ]; then
-    lidarrUrlBase=""
-  else
-    lidarrUrlBase="/$(echo "$lidarrUrlBase" | sed "s/\///")"
+    # If an external port is provided, use it. Otherwise, get the port from the config file.
+    local lidarrPort="${LIDARR_PORT}"
+    if [ -z "$lidarrPort" ] || [ "$lidarrPort" == "null" ]; then
+      lidarrPort="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.Port)"
+    fi
+      
+    # Construct and return the full URL
+    lidarrUrl="http://${LIDARR_HOST}:${lidarrPort}${lidarrUrlBase}"
+    log "DEBUG :: lidarrUrl: ${lidarrUrl}"
   fi
-
-  # If an external port is provided, use it. Otherwise, get the port from the config file.
-  local lidarrPort="${LIDARR_PORT}"
-  if [ -z "$lidarrPort" ] || [ "$lidarrPort" == "null" ]; then
-    lidarrPort="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.Port)"
-  fi
-    
-  # Construct and return the full URL
-  lidarrUrl="http://${LIDARR_HOST}:${lidarrPort}${lidarrUrlBase}"
-  log "DEBUG :: lidarrUrl: ${lidarrUrl}"
+  log "TRACE :: Exiting getLidarrUrl..."
 }
 
 # Perform a Lidarr API request with error handling and retries
 LidarrApiRequest() {
+  log "TRACE :: Entering LidarrApiRequest..."
     # $1 = HTTP method (GET, POST, PUT, DELETE)
     # $2 = API path (e.g., config/mediamanagement)
     # $3 = Optional JSON payload
@@ -127,7 +134,6 @@ LidarrApiRequest() {
             200|201|202|204)
                 # Successful request, return JSON body
                 echo "${body}"
-                return 0
                 ;;
             000)
                 # Connection failed — retry after waiting
@@ -159,10 +165,12 @@ LidarrApiRequest() {
                 ;;
         esac
     done
+  log "TRACE :: Exiting LidarrApiRequest..."
 }
 
 # Checks Lidarr for any active tasks and waits for them to complete
 LidarrTaskStatusCheck() {
+  log "TRACE :: Entering LidarrTaskStatusCheck..."
     local alerted="no"
     local taskList taskCount
 
@@ -183,10 +191,12 @@ LidarrTaskStatusCheck() {
             break
         fi
     done
+  log "TRACE :: Exiting LidarrTaskStatusCheck..."
 }
 
 # Ensures connectivity to Lidarr and determines API version
 verifyLidarrApiAccess() {
+  log "TRACE :: Entering verifyLidarrApiAccess..."
   getLidarrApiKey
   getLidarrUrl
 
@@ -222,4 +232,5 @@ verifyLidarrApiAccess() {
   fi
 
   log "INFO :: Lidarr API access verified (URL: ${lidarrUrl}, API Version: ${lidarrApiVersion})"
+  log "TRACE :: Exiting verifyLidarrApiAccess..."
 }
