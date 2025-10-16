@@ -8,6 +8,17 @@ scriptName="entrypoint"
 #### Import Functions
 source /app/functions.bash
 
+### Preamble ###
+
+log "INFO :: Starting $scriptName version $scriptVersion"
+
+### Validation ###
+
+log "DEBUG :: LIDARR_CONFIG_PATH=${LIDARR_CONFIG_PATH}"
+log "DEBUG :: LOG_LEVEL=${LOG_LEVEL}"
+log "DEBUG :: LIDARR_HOST=${LIDARR_HOST}"
+log "DEBUG :: LIDARR_PORT=${LIDARR_PORT}"
+
 # Start with healthy status
 setHealthy
 
@@ -16,6 +27,8 @@ validateEnvironment
 
 # Ensure Lidarr connectivity
 verifyLidarrApiAccess
+
+### Main ###
 
 # Run all services
 for script in /app/services/*.bash; do
