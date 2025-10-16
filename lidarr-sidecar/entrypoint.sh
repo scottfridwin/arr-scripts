@@ -10,6 +10,9 @@ setHealthy
 # Validate environment variables
 validateEnvironment
 
+# Ensure Lidarr connectivity
+verifyLidarrApiAccess
+
 # Run all services
 for script in /app/services/*.bash; do
   bash "$script" &

@@ -60,66 +60,6 @@ LevenshteinDistance() {
     echo "${curr[len_s2]}"
 }
 
-# Perform a Lidarr API request with error handling and retries
-LidarrApiRequest() {
-    # $1 = HTTP method (GET, POST, PUT, DELETE)
-    # $2 = API path (e.g., /api/v1/command)
-    # $3 = Optional JSON payload
-    local method="${1}"
-    local path="${2}"
-    local payload="${3:-}"
-    local response body httpCode
-
-    # If method is not GET, ensure Lidarr isn’t busy
-    if [[ "${method}" != "GET" ]]; then
-        LidarrTaskStatusCheck
-    fi
-
-    while true; do
-        if [[ -n "${payload}" ]]; then
-            response=$(curl -s -w "\n%{http_code}" -X "${method}" \
-                -H "X-Api-Key: ${lidarrApiKey}" \
-                -H "Content-Type: application/json" \
-                -d "${payload}" \
-                "${lidarrUrl}${path}")
-        else
-            response=$(curl -s -w "\n%{http_code}" -X "${method}" \
-                -H "X-Api-Key: ${lidarrApiKey}" \
-                "${lidarrUrl}${path}")
-        fi
-
-        httpCode=$(tail -n1 <<<"${response}")
-        body=$(sed '$d' <<<"${response}")
-
-        case "${httpCode}" in
-            200|201)
-                # Successful request, return JSON body
-                log "DEBUG :: LidarrApiRequest response body ${body}"
-                echo "${body}"
-                return 0
-                ;;
-            000)
-                # Connection failed — retry after waiting
-                log "WARNING :: Lidarr unreachable — entering recovery loop..."
-                while true; do
-                    sleep 5
-                    if curl -fs -H "X-Api-Key: ${lidarrApiKey}" "${lidarrUrl}/api/v1/system/status" >/dev/null 2>&1; then
-                        log "INFO :: Lidarr connectivity restored, retrying previous request..."
-                        break
-                    fi
-                done
-                ;;
-            *)
-                # Any other HTTP error is fatal
-                log "ERROR :: Lidarr API call failed (HTTP ${httpCode}) for ${path}"
-                log "DEBUG :: Response body: ${body}"
-                setUnhealthy
-                exit 1
-                ;;
-        esac
-    done
-}
-
 # Fetch Deezer album info with caching and retries
 GetDeezerAlbumInfo () {
     # $1 -> Deezer Album ID
@@ -244,8 +184,7 @@ AddLidarrTags () {
 	local response tagCheck httpCode
 
 	# Fetch existing tags once
-	response=$(LidarrApiRequest "GET" "/api/v1/tag")
-    log "DEBUG :: Get tags response: ${response}"
+	response=$(LidarrApiRequest "GET" "tag")
 
 	# Split comma-separated AUDIO_TAGS into array
 	IFS=',' read -ra tags <<< "${AUDIO_TAGS}"
@@ -259,7 +198,7 @@ AddLidarrTags () {
 
 		if [ -z "${tagCheck}" ]; then
 			log "INFO :: Tag not found, creating tag: ${tag}"
-			response=$(LidarrApiRequest "POST" "/api/v1/tag" "{\"label\":\"${tag}\"}")
+			response=$(LidarrApiRequest "POST" "tag" "{\"label\":\"${tag}\"}")
 		else
 			log "INFO :: Tag already exists: ${tag}"
 		fi
@@ -271,7 +210,7 @@ AddLidarrDownloadClient() {
 	local downloadClientsData downloadClientCheck httpCode
 
 	# Get list of existing download clients
-	downloadClientsData=$(LidarrApiRequest "GET" "/api/v1/downloadclient")
+	downloadClientsData=$(LidarrApiRequest "GET" "downloadclient")
 
 	# Check if our custom client already exists
 	downloadClientCheck=$(echo "${downloadClientsData}" | jq -r '.[]?.name' | grep -Fx "${AUDIO_DOWNLOADCLIENT_NAME}" || true)
@@ -301,7 +240,7 @@ AddLidarrDownloadClient() {
 EOF
 
 		# Submit to API
-		LidarrApiRequest "POST" "/api/v1/downloadclient" "${payload}"
+		LidarrApiRequest "POST" "downloadclient" "${payload}"
 
 		log "INFO :: Successfully added ${AUDIO_DOWNLOADCLIENT_NAME} download client."
 	else
@@ -493,8 +432,6 @@ DownloadProcess () {
 	find "${AUDIO_WORK_PATH}/staging" -type f -regex ".*/.*\.\(flac\|m4a\|mp3\|flac\|opus\)" -exec mv {} "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"/ \;
 
 	NotifyLidarrForImport "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
-	lidarrDownloadImportNotfication="true"
-	LidarrTaskStatusCheck
 
 	# Clean up incomplete folder
 	rm -rf "${AUDIO_WORK_PATH}/staging"/*
@@ -518,7 +455,7 @@ NotifyLidarrForImport() {
     # $1 -> folder path containing audio files for Lidarr to import
     local importPath="${1}"
 
-    LidarrApiRequest "POST" "/api/v1/command" "{\"name\":\"DownloadedAlbumsScan\", \"path\":\"${importPath}\"}"
+    LidarrApiRequest "POST" "command" "{\"name\":\"DownloadedAlbumsScan\", \"path\":\"${importPath}\"}"
 
     log "INFO :: Sent notification to Lidarr to import downloaded album at path: ${importPath}"
 }
@@ -579,7 +516,7 @@ ProcessLidarrWantedList () {
 
 	# Get total count of albums
 	local totalRecords
-	totalRecords=$(LidarrApiRequest "GET" "/api/v1/wanted/${listType}?page=1&pagesize=1&sortKey=${searchOrder}&sortDirection=${searchDirection}" \
+	totalRecords=$(LidarrApiRequest "GET" "wanted/${listType}?page=1&pagesize=1&sortKey=${searchOrder}&sortDirection=${searchDirection}" \
 		| jq -r .totalRecords)
     log "INFO :: Found ${totalRecords} ${listType} albums"
 
@@ -600,7 +537,7 @@ ProcessLidarrWantedList () {
 
 		# Fetch page of album IDs
 		mapfile -t tocheck < <(
-			LidarrApiRequest "GET" "/api/v1/wanted/${listType}?page=${page}&pagesize=${pageSize}&sortKey=${searchOrder}&sortDirection=${searchDirection}" \
+			LidarrApiRequest "GET" "wanted/${listType}?page=${page}&pagesize=${pageSize}&sortKey=${searchOrder}&sortDirection=${searchDirection}" \
 				| jq -r '.records[].id' | sort
 		)
 
@@ -632,7 +569,7 @@ SearchProcess () {
 
 	# Fetch album data from Lidarr
 	local lidarrAlbumData
-	lidarrAlbumData="$(LidarrApiRequest "GET" "/api/v1/album/${wantedAlbumId}")"
+	lidarrAlbumData="$(LidarrApiRequest "GET" "album/${wantedAlbumId}")"
     if [ -z "$lidarrAlbumData" ]; then
         log "WARNING :: Lidarr returned no data for album ID ${wantedAlbumId}"
         return
@@ -688,9 +625,9 @@ SearchProcess () {
 	#  - Title length (ascending if prefer special editions, descending if not)
 
 	# Debugging output
-	# echo "$lidarrAlbumData" | jq -c '.releases[]' | while IFS= read -r release_json; do
-	# 	log "DEBUG :: before sort :: $release_json"
-	# done
+	echo "$lidarrAlbumData" | jq -c '.releases[]' | while IFS= read -r release_json; do
+		log "DEBUG :: before sort :: $release_json"
+	done
 	jq_filter_special="[.releases[]
 	| .normalized_title = (.title | ascii_downcase)
 	| .title_length = (.title | length)
@@ -710,9 +647,9 @@ SearchProcess () {
 		sorted_releases=$(echo "${lidarrAlbumData}" | jq -c "${jq_filter_normal}")
 	fi
 	# Debugging output
-	# echo "$sorted_releases" | jq -c '.[]' | while IFS= read -r release_json; do
-	# 	log "DEBUG :: after sort :: $release_json"
-	# done
+	echo "$sorted_releases" | jq -c '.[]' | while IFS= read -r release_json; do
+		log "DEBUG :: after sort :: $release_json"
+	done
 
 	# Determine lyric filter for first pass
 	local lyricFilter=()
@@ -1018,30 +955,6 @@ DownloadBestMatch() {
     fi
 }
 
-# Checks Lidarr for any active tasks and waits for them to complete
-LidarrTaskStatusCheck() {
-    local alerted="no"
-    local taskList taskCount
-
-    while true; do
-        # Fetch all commands from Lidarr
-        taskList=$(LidarrApiRequest "GET" "/api/v1/command")
-
-        # Count active tasks
-        taskCount=$(jq -r '.[] | select(.status=="started") | .name' <<<"$taskList" | wc -l)
-
-        if (( taskCount >= 1 )); then
-            if [[ "$alerted" == "no" ]]; then
-                alerted="yes"
-                log "STATUS :: LIDARR BUSY :: Pausing/waiting for all active Lidarr tasks to end..."
-            fi
-            sleep 2
-        else
-            break
-        fi
-    done
-}
-
 # Verify a FLAC file for corruption
 audioFlacVerification() {
   # $1 = path to FLAC file
@@ -1082,10 +995,6 @@ log "DEBUG :: AUDIO_WORK_PATH=${AUDIO_WORK_PATH}"
 # Nothing to validate
 
 ### Main ###
-
-# Connect to Lidarr
-lidarrApiKey="$(getLidarrApiKey)" || setUnhealthy
-lidarrUrl="$(getLidarrUrl)" || setUnhealthy
 
 # Create Lidarr entities
 AddLidarrTags

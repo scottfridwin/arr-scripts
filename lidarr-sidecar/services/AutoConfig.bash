@@ -31,141 +31,44 @@ log "DEBUG :: AUTOCONFIG_TRACK_NAMING_JSON=${AUTOCONFIG_TRACK_NAMING_JSON}"
 
 ### Main ###
 
-lidarrApiKey="$(getLidarrApiKey)" || setUnhealthy
-lidarrUrl="$(getLidarrUrl)" || setUnhealthy
+updateLidarrConfig() {
+    local jsonFile="$1"
+    local apiPath="$2"
+    local settingName="$3"
 
-apiVersion=""
-apiVersion="$(verifyApiAccess "$lidarrUrl" "$lidarrApiKey")"
-if [ -z "$apiVersion" ]; then
-  log "ERROR :: Unable to connect to Lidarr at $lidarrUrl with provided API key."
-  setUnhealthy
-fi
+    if [ -z "$jsonFile" ] || [ ! -f "$jsonFile" ]; then
+        log "ERROR :: JSON config file not set or not found: $jsonFile"
+        setUnhealthy
+    fi
 
-if [ "$AUTOCONFIG_MEDIA_MANAGEMENT" == "true" ]; then
-  log "INFO :: Configuring Lidarr Media Management Settings"
+    log "INFO :: Configuring Lidarr $settingName Settings"
 
-  if [ -z "$AUTOCONFIG_MEDIA_MANAGEMENT_JSON" ] || [ ! -f "$AUTOCONFIG_MEDIA_MANAGEMENT_JSON" ]; then
-    log "ERROR :: JSON config file not set or not found: $AUTOCONFIG_MEDIA_MANAGEMENT_JSON"
-    setUnhealthy
-  fi
+    # Read the JSON file and send it via LidarrApiRequest
+    local jsonData
+    jsonData=$(<"$jsonFile")  # load JSON into a variable
 
-  response=$(curl -s -o /dev/null -w "%{http_code}" \
-      "$lidarrUrl/api/${apiVersion}/config/mediamanagement" \
-      -X PUT \
-      -H 'Content-Type: application/json' \
-      -H "X-Api-Key: ${lidarrApiKey}" \
-      --data-binary @"$AUTOCONFIG_MEDIA_MANAGEMENT_JSON")
+    LidarrApiRequest "PUT" "${apiPath}" "$jsonData" >/dev/null
+    log "INFO :: Successfully updated Lidarr $settingName"
+}
 
-  if [ "$response" -ne 200 ]; then
-      log "ERROR :: Failed to update Lidarr Media Management settings, HTTP status $response"
-      setUnhealthy
-  fi
-fi
+# Conditionally update each setting
+[ "$AUTOCONFIG_MEDIA_MANAGEMENT" == "true" ] && \
+    updateLidarrConfig "$AUTOCONFIG_MEDIA_MANAGEMENT_JSON" "config/mediamanagement" "Media Management"
 
-if [ "$AUTOCONFIG_METADATA_CONSUMER" == "true" ]; then
-  log "INFO :: Configuring Lidarr Metadata Consumer Settings"
+[ "$AUTOCONFIG_METADATA_CONSUMER" == "true" ] && \
+    updateLidarrConfig "$AUTOCONFIG_METADATA_CONSUMER_JSON" "metadata/1" "Metadata Consumer"
 
-  if [ -z "$AUTOCONFIG_METADATA_CONSUMER_JSON" ] || [ ! -f "$AUTOCONFIG_METADATA_CONSUMER_JSON" ]; then
-    log "ERROR :: JSON config file not set or not found: $AUTOCONFIG_METADATA_CONSUMER_JSON"
-    setUnhealthy
-  fi
+[ "$AUTOCONFIG_METADATA_PROVIDER" == "true" ] && \
+    updateLidarrConfig "$AUTOCONFIG_METADATA_PROVIDER_JSON" "config/metadataProvider" "Metadata Provider"
 
-  response=$(curl -s -o /dev/null -w "%{http_code}" \
-      "$lidarrUrl/api/${apiVersion}/metadata/1?" \
-      -X PUT \
-      -H 'Content-Type: application/json' \
-      -H "X-Api-Key: ${lidarrApiKey}" \
-      --data-binary @"$AUTOCONFIG_METADATA_CONSUMER_JSON")
+[ "$AUTOCONFIG_LIDARR_UI" == "true" ] && \
+    updateLidarrConfig "$AUTOCONFIG_LIDARR_UI_JSON" "config/ui" "UI"
 
-  if [ "$response" -ne 200 ]; then
-      log "ERROR :: Failed to update Lidarr Metadata Consumer settings, HTTP status $response"
-      setUnhealthy
-  fi
-fi
+[ "$AUTOCONFIG_METADATA_PROFILE" == "true" ] && \
+    updateLidarrConfig "$AUTOCONFIG_METADATA_PROFILE_JSON" "metadataprofile/1" "Metadata Profile"
 
-if [ "$AUTOCONFIG_METADATA_PROVIDER" == "true" ]; then
-  log "INFO :: Configuring Lidarr Metadata Provider Settings"
-
-  if [ -z "$AUTOCONFIG_METADATA_PROVIDER_JSON" ] || [ ! -f "$AUTOCONFIG_METADATA_PROVIDER_JSON" ]; then
-    log "ERROR :: JSON config file not set or not found: $AUTOCONFIG_METADATA_PROVIDER_JSON"
-    setUnhealthy
-  fi
-
-  response=$(curl -s -o /dev/null -w "%{http_code}" \
-      "$lidarrUrl/api/${apiVersion}/config/metadataProvider" \
-      -X PUT \
-      -H 'Content-Type: application/json' \
-      -H "X-Api-Key: ${lidarrApiKey}" \
-      --data-binary @"$AUTOCONFIG_METADATA_PROVIDER_JSON")
-
-  if [ "$response" -ne 200 ]; then
-      log "ERROR :: Failed to update Lidarr Metadata Provider settings, HTTP status $response"
-      setUnhealthy
-  fi
-fi
-
-if [ "$AUTOCONFIG_LIDARR_UI" == "true" ]; then
-  log "INFO :: Configuring Lidarr UI Settings"
-
-  if [ -z "$AUTOCONFIG_LIDARR_UI_JSON" ] || [ ! -f "$AUTOCONFIG_LIDARR_UI_JSON" ]; then
-    log "ERROR :: JSON config file not set or not found: $AUTOCONFIG_LIDARR_UI_JSON"
-    setUnhealthy
-  fi
-
-  response=$(curl -s -o /dev/null -w "%{http_code}" \
-      "$lidarrUrl/api/${apiVersion}/config/ui" \
-      -X PUT \
-      -H 'Content-Type: application/json' \
-      -H "X-Api-Key: ${lidarrApiKey}" \
-      --data-binary @"$AUTOCONFIG_LIDARR_UI_JSON")
-
-  if [ "$response" -ne 200 ]; then
-      log "ERROR :: Failed to update Lidarr UI settings, HTTP status $response"
-      setUnhealthy
-  fi
-fi
-
-if [ "$AUTOCONFIG_METADATA_PROFILE" == "true" ]; then
-  log "INFO :: Configuring Lidarr Metadata Profile Settings"
-
-  if [ -z "$AUTOCONFIG_METADATA_PROFILE_JSON" ] || [ ! -f "$AUTOCONFIG_METADATA_PROFILE_JSON" ]; then
-    log "ERROR :: JSON config file not set or not found: $AUTOCONFIG_METADATA_PROFILE_JSON"
-    setUnhealthy
-  fi
-
-  response=$(curl -s -o /dev/null -w "%{http_code}" \
-      "$lidarrUrl/api/${apiVersion}/metadataprofile/1?" \
-      -X PUT \
-      -H 'Content-Type: application/json' \
-      -H "X-Api-Key: ${lidarrApiKey}" \
-      --data-binary @"$AUTOCONFIG_METADATA_PROFILE_JSON")
-
-  if [ "$response" -ne 200 ]; then
-      log "ERROR :: Failed to update Lidarr Metadata Profile settings, HTTP status $response"
-      setUnhealthy
-  fi
-fi
-
-if [ "$AUTOCONFIG_TRACK_NAMING" == "true" ]; then
-  log "INFO :: Configuring Lidarr Track Naming Settings"
-
-  if [ -z "$AUTOCONFIG_TRACK_NAMING_JSON" ] || [ ! -f "$AUTOCONFIG_TRACK_NAMING_JSON" ]; then
-    log "ERROR :: JSON config file not set or not found: $AUTOCONFIG_TRACK_NAMING_JSON"
-    setUnhealthy
-  fi
-
-  response=$(curl -s -o /dev/null -w "%{http_code}" \
-      "$lidarrUrl/api/${apiVersion}/config/naming" \
-      -X PUT \
-      -H 'Content-Type: application/json' \
-      -H "X-Api-Key: ${lidarrApiKey}" \
-      --data-binary @"$AUTOCONFIG_TRACK_NAMING_JSON")
-
-  if [ "$response" -ne 200 ]; then
-      log "ERROR :: Failed to update Lidarr Track Naming settings, HTTP status $response"
-      setUnhealthy
-  fi
-fi
+[ "$AUTOCONFIG_TRACK_NAMING" == "true" ] && \
+    updateLidarrConfig "$AUTOCONFIG_TRACK_NAMING_JSON" "config/naming" "Track Naming"
 
 log "INFO :: Auto Configuration Complete"
 exit 0
