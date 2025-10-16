@@ -1077,10 +1077,7 @@ log "DEBUG :: AUDIO_WORK_PATH=${AUDIO_WORK_PATH}"
 
 ### Validation ###
 
-if ! [[ "$ARL_UPDATE_INTERVAL" =~ ^[0-9]+[smhd]$ ]]; then
-    log "ERROR :: ARL_UPDATE_INTERVAL is invalid"
-    setUnhealthy
-fi
+# Nothing to validate
 
 ### Main ###
 

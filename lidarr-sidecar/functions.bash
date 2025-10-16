@@ -103,7 +103,7 @@ verifyApiAccess() {
     fi
   done
 
-  if [ "$apiVersion" -ne "v1" ]; then
+  if [ "$apiVersion" != "v1" ]; then
     log "ERROR :: Only Lidarr v1 API is supported."
     setUnhealthy
   fi
