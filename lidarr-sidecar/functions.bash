@@ -128,8 +128,8 @@ LidarrApiRequest() {
         httpCode=$(tail -n1 <<<"${response}")
         body=$(sed '$d' <<<"${response}")
 
-        log "DEBUG :: LidarrApiRequest response code ${httpCode}"
-        log "DEBUG :: LidarrApiRequest response body ${body}"
+        log "TRACE :: LidarrApiRequest response code ${httpCode}"
+        log "TRACE :: LidarrApiRequest response body ${body}"
         case "${httpCode}" in
             200|201|202|204)
                 # Successful request, return JSON body
