@@ -139,7 +139,7 @@ LidarrApiRequest() {
                         "${lidarrUrl}/api/${lidarrApiVersion}/system/status")
                     httpCode=$(tail -n1 <<<"${statusResponse}")
                     body=$(sed '$d' <<<"${statusResponse}")
-                    log "DEBUG :: Lidarr status request returned ${httpCode} with body ${body}"
+                    log "DEBUG :: Lidarr status request (${lidarrUrl}/api/${lidarrApiVersion}/system/status) returned ${httpCode} with body ${body}"
                     if [[ "${httpCode}" -eq "200" ]]; then
                         log "INFO :: Lidarr connectivity restored, retrying previous request..."
                         break
