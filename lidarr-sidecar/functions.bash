@@ -53,7 +53,7 @@ validateEnvironment() {
 # Retrieves the Lidarr API key from the config file
 getLidarrApiKey() {
   log "TRACE :: Entering getLidarrApiKey..."
-  if [[ -n "${lidarrApiKey}" ]]; then
+  if [[ -z "${lidarrApiKey}" ]]; then
     lidarrApiKey="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.ApiKey)"
     if [ -z "$lidarrApiKey" ] || [ "$lidarrApiKey" == "null" ]; then
       log "ERROR :: Unable to retrieve Lidarr API key from configuration file: $LIDARR_CONFIG_PATH"
@@ -69,7 +69,7 @@ getLidarrApiKey() {
 # Constructs the Lidarr base URL from environment variables and config file
 getLidarrUrl() {
   log "TRACE :: Entering getLidarrUrl..."
-  if [[ -n "${lidarrUrl}" ]]; then
+  if [[ -z "${lidarrUrl}" ]]; then
     # Get Lidarr base URL. Usually blank, but can be set in Lidarr settings.
     local lidarrUrlBase="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.UrlBase)"
     if [ "$lidarrUrlBase" == "null" ]; then
