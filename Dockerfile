@@ -97,4 +97,4 @@ ENV AUTOCONFIG_TRACK_NAMING=true
 ENV AUTOCONFIG_TRACK_NAMING_JSON=/app/config/track_naming.json
 
 # Entrypoint
-CMD ["entrypoint.sh"]
+CMD ["bash", "/app/entrypoint.sh"]
