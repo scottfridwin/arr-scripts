@@ -95,6 +95,12 @@ LidarrApiRequest() {
     local payload="${3:-}"
     local response body httpCode
 
+    if [[ -z "$lidarrUrl" || -z "$lidarrApiKey" || -z "$lidarrApiVersion" ]]; then
+        log "ERROR :: LidarrApiRequest requires lidarrUrl, lidarrApiKey, and lidarrApiVersion to be set"
+        setUnhealthy
+        exit 1
+    fi
+
     # If method is not GET, ensure Lidarr isn’t busy
     if [[ "${method}" != "GET" ]]; then
         LidarrTaskStatusCheck
@@ -215,4 +221,9 @@ verifyLidarrApiAccess() {
     setUnhealthy
     exit 1
   fi
+
+  log "INFO :: Lidarr API access verified (URL: ${lidarrUrl}, API Version: ${lidarrApiVersion})"
+  export lidarrApiKey
+  export lidarrUrl
+  export lidarrApiVersion
 }
