@@ -216,6 +216,7 @@ verifyLidarrApiAccess() {
 
     # Fall back to v1 if v3 failed
     if [ -z "$apiTest" ]; then
+      log "DEBUG :: Testing api version v1..."
       lidarrApiVersion="v1"
       apiTest="$(curl -s "${lidarrUrl}/api/${lidarrApiVersion}/system/status?apikey=${lidarrApiKey}" | jq -r .instanceName)"
     fi
