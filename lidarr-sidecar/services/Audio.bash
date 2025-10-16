@@ -245,22 +245,23 @@ AddLidarrTags () {
 
 	# Fetch existing tags once
 	response=$(LidarrApiRequest "GET" "/api/v1/tag")
+    log "DEBUG :: Get tags response: ${response}"
 
 	# Split comma-separated AUDIO_TAGS into array
-	IFS=',' read -ra tags <<< "$AUDIO_TAGS"
+	IFS=',' read -ra tags <<< "${AUDIO_TAGS}"
 
 	for tag in "${tags[@]}"; do
-		tag=$(echo "$tag" | xargs)  # Trim whitespace
-		log "INFO :: Processing tag: $tag"
+		tag=$(echo "${tag}" | xargs)  # Trim whitespace
+		log "INFO :: Processing tag: ${tag}"
 
 		# Check if tag already exists
-		tagCheck=$(echo "$response" | jq -r --arg TAG "$tag" '.[] | select(.label==$TAG) | .label')
+		tagCheck=$(echo "${response}" | jq -r --arg TAG "${tag}" '.[] | select(.label==$TAG) | .label')
 
-		if [ -z "$tagCheck" ]; then
-			log "INFO :: Tag not found, creating tag: $tag"
+		if [ -z "${tagCheck}" ]; then
+			log "INFO :: Tag not found, creating tag: ${tag}"
 			response=$(LidarrApiRequest "POST" "/api/v1/tag" "{\"label\":\"${tag}\"}")
 		else
-			log "INFO :: Tag already exists: $tag"
+			log "INFO :: Tag already exists: ${tag}"
 		fi
 	done
 }
