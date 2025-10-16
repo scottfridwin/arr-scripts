@@ -14,7 +14,7 @@ log () {
 
     # Compare priorities
     if (( LOG_PRIORITY[$level] >= LOG_PRIORITY[$LOG_LEVEL] )); then
-        echo "$scriptName :: v$scriptVersion :: $msg"
+        echo "$scriptName :: v$scriptVersion :: $msg" >&2
     fi
 }
 
