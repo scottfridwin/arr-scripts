@@ -1,83 +1,84 @@
 log () {
-  m_time=`date "+%F %T"`
-  echo $m_time" :: $scriptName :: $scriptVersion :: "$1
-  echo $m_time" :: $scriptName :: $scriptVersion :: "$1 >> "/config/logs/$logFileName"
+  echo "$scriptName :: v$scriptVersion :: "$1
 }
 
-logfileSetup () {
-  logFileName="$scriptName-$(date +"%Y_%m_%d_%I_%M_%p").txt"
+setHealthy () {
+  echo "healthy" > /tmp/health
+}
 
-  # Keep only the last 2 log files, ignore if none exist
-  ls -1t /config/logs/"$scriptName"-* 2>/dev/null | tail -n +3 | xargs -r rm -f
+setUnhealthy () {
+  echo "unhealthy" > /tmp/health
+  exit 1
+}
 
-  # delete log files older than 5 days
-  find "/config/logs" -type f -iname "$scriptName-*.txt" -mtime +5 -delete
-  
-  if [ ! -f "/config/logs/$logFileName" ]; then
-    echo "" > "/config/logs/$logFileName"
-    chmod 666 "/config/logs/$logFileName"
+getLidarrApiKey() {
+  local apiKey=""
+  apiKey="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.ApiKey)"
+  if [ -z "$apiKey" ] || [ "$apiKey" == "null" ]; then
+    log "ERROR :: Unable to retrieve Lidarr API key from configuration file: $LIDARR_CONFIG_PATH"
+    setUnhealthy
   fi
+
+  echo "$apiKey"
 }
 
-getArrAppInfo () {
-  # Get Arr App information
-  if [ -z "$arrUrl" ] || [ -z "$arrApiKey" ]; then
-    arrUrlBase="$(cat /config/config.xml | xq | jq -r .Config.UrlBase)"
-    if [ "$arrUrlBase" == "null" ]; then
-      arrUrlBase=""
-    else
-      arrUrlBase="/$(echo "$arrUrlBase" | sed "s/\///")"
-    fi
-    arrName="$(cat /config/config.xml | xq | jq -r .Config.InstanceName)"
-    arrApiKey="$(cat /config/config.xml | xq | jq -r .Config.ApiKey)"
-    arrPort="$(cat /config/config.xml | xq | jq -r .Config.Port)"
-    # Read arrHost from extended.conf if not already set
-    if [ -z "$arrHost" ]; then
-      if [ -f "/config/extended.conf" ]; then
-        arrHost=$(grep -E '^arrHost=' /config/extended.conf | cut -d'=' -f2 | tr -d '"')
-      fi
-      arrHost="${arrHost:-127.0.0.1}"
-    fi
-    arrUrl="http://${arrHost}:${arrPort}${arrUrlBase}"
+getLidarrUrl() {
+  local lidarrUrl=""
+
+  # Get Lidarr base URL. Usually blank, but can be set in Lidarr settings.
+  local lidarrUrlBase="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.UrlBase)"
+  if [ "$lidarrUrlBase" == "null" ]; then
+    lidarrUrlBase=""
+  else
+    lidarrUrlBase="/$(echo "$lidarrUrlBase" | sed "s/\///")"
   fi
+
+  # If an external port is provided, use it. Otherwise, get the port from the config file.
+  local lidarrPort="${LIDARR_PORT}"
+  if [ -z "$lidarrPort" ] || [ "$lidarrPort" == "null" ]; then
+    lidarrPort="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.Port)"
+  fi
+    
+  # Construct and return the full URL
+  arrUrl="http://${LIDARR_HOST}:${lidarrPort}${lidarrUrlBase}"
+
+  echo "$arrUrl"
 }
 
-verifyApiAccess () {
-  until false
-  do
-    arrApiTest=""
-    arrApiVersion=""
-    if [ -z "$arrApiTest" ]; then
-      arrApiVersion="v3"
-      arrApiTest="$(curl -s "$arrUrl/api/$arrApiVersion/system/status?apikey=$arrApiKey" | jq -r .instanceName)"
+verifyApiAccess() {
+  local url="$1"
+  local key="$2"
+
+  if [ -z "$url" ] || [ -z "$key" ]; then
+    log "ERROR :: verifyApiAccess requires both URL and API key"
+    return 1
+  fi
+
+  local apiTest=""
+  local apiVersion=""
+
+  until [ -n "$apiTest" ]; do
+    # # Try v3 first
+    # apiVersion="v3"
+    # apiTest="$(curl -s "${url}/api/${apiVersion}/system/status?apikey=${key}" | jq -r .instanceName)"
+
+    # Fall back to v1 if v3 failed
+    if [ -z "$apiTest" ]; then
+      apiVersion="v1"
+      apiTest="$(curl -s "${url}/api/${apiVersion}/system/status?apikey=${key}" | jq -r .instanceName)"
     fi
-    if [ -z "$arrApiTest" ]; then
-      arrApiVersion="v1"
-      arrApiTest="$(curl -s "$arrUrl/api/$arrApiVersion/system/status?apikey=$arrApiKey" | jq -r .instanceName)"
-    fi
-    if [ ! -z "$arrApiTest" ]; then
-      break
-    else
-      log "$arrName is not ready, sleeping until valid response..."
-      sleep 1
+
+    if [ -z "$apiTest" ]; then
+      log "INFO :: Lidarr is not ready, sleeping until valid response..."
+      sleep 5
     fi
   done
-}
 
-ConfValidationCheck () {
-  if [ ! -f "/config/extended.conf" ]; then
-    log "ERROR :: \"extended.conf\" file is missing..."
-    log "ERROR :: Download the extended.conf config file and place it into \"/config\" folder..."
-    log "ERROR :: Exiting..."
-    exit
+  if [ "$apiVersion" -ne "v1" ]; then
+    log "ERROR :: Only Lidarr v1 API is supported."
+    setUnhealthy
   fi
-  if [ -z "$enableAutoConfig" ]; then
-    log "ERROR :: \"extended.conf\" file is unreadable..."
-    log "ERROR :: Likely caused by editing with a non unix/linux compatible editor, to fix, replace the file with a valid one or correct the line endings..."
-    log "ERROR :: Exiting..."
-    exit
-  fi
-}
 
-logfileSetup
-ConfValidationCheck
+  # Return the working API version
+  echo "$apiVersion"
+}
