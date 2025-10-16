@@ -110,7 +110,7 @@ LidarrApiRequest() {
         else
             response=$(curl -s -w "\n%{http_code}" -X "${method}" \
                 -H "X-Api-Key: ${lidarrApiKey}" \
-                "${lidarrUrl}${path}")
+                "${lidarrUrl}/api/${lidarrApiVersion}/${path}")
         fi
 
         httpCode=$(tail -n1 <<<"${response}")
@@ -134,7 +134,13 @@ LidarrApiRequest() {
                     #     log "INFO :: Lidarr connectivity restored, retrying previous request..."
                     #     break
                     # fi
-                    if curl -fs -H "X-Api-Key: ${lidarrApiKey}" "${lidarrUrl}/api/${lidarrApiVersion}/system/status" 2>&1 1>&2; then
+                    statusResponse=$(curl -s -w "\n%{http_code}" -X "GET" \
+                        -H "X-Api-Key: ${lidarrApiKey}" \
+                        "${lidarrUrl}/api/${lidarrApiVersion}/system/status")
+                    httpCode=$(tail -n1 <<<"${statusResponse}")
+                    body=$(sed '$d' <<<"${statusResponse}")
+                    log "DEBUG :: Lidarr status request returned ${httpCode} with body ${body}"
+                    if [[ "${httpCode}" -eq "200" ]]; then
                         log "INFO :: Lidarr connectivity restored, retrying previous request..."
                         break
                     fi
