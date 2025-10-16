@@ -1,5 +1,21 @@
+declare -A LOG_PRIORITY=( ["DEBUG"]=0 ["INFO"]=1 ["WARNING"]=2 ["ERROR"]=3 )
+
 log () {
-  echo "$scriptName :: v$scriptVersion :: "$1
+    local msg="$1"
+
+    # Ensure message starts with a valid level
+    if [[ ! "$msg" =~ ^(DEBUG|INFO|WARNING|ERROR) ]]; then
+        echo "CRITICAL :: $scriptName :: v$scriptVersion :: Invalid log message format: '$msg'" >&2
+        exit 1
+    fi
+
+    # Extract the level from the message
+    local level="${msg%% *}"  # first word
+
+    # Compare priorities
+    if (( LOG_PRIORITY[$level] >= LOG_PRIORITY[$LOG_LEVEL] )); then
+        echo "$scriptName :: v$scriptVersion :: $msg"
+    fi
 }
 
 setHealthy () {
@@ -12,11 +28,16 @@ setUnhealthy () {
 }
 
 validateEnvironment() {
-  if [[ ! -f "${LIDARR_CONFIG_PATH}" ]]; then
+  [[ "${LOG_LEVEL}" =~ ^(DEBUG|INFO|WARNING|ERROR)$ ]] || {
+      echo "CRITICAL :: $scriptName :: v$scriptVersion :: Invalid LOG_LEVEL value: '${LOG_LEVEL}'. Must be one of: DEBUG, INFO, WARNING, ERROR" >&2
+      setUnhealthy
+      exit 1
+  }
+  [[ -f "${LIDARR_CONFIG_PATH}" ]] || { 
       log "ERROR :: File not found at '${LIDARR_CONFIG_PATH}'"
       setUnhealthy
       exit 1
-  fi
+  }
 }
 
 getLidarrApiKey() {

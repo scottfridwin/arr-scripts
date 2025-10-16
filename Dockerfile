@@ -48,6 +48,9 @@ WORKDIR /app
 
 ### Variable defaults ###
 
+# General settings
+ENV LOG_LEVEL=INFO
+
 # Connection details
 ENV LIDARR_PORT=
 ENV LIDARR_CONFIG_PATH=/lidarr/config.xml
