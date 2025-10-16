@@ -403,7 +403,7 @@ DownloadProcess () {
 		downloadTry=$(( $downloadTry + 1 ))
 
 		# Stop trying after too many attempts
-		if (( downloadTry >= AUDIO_ATTEMPT_THRESHOLD )); then
+		if (( downloadTry >= AUDIO_DOWNLOAD_ATTEMPT_THRESHOLD )); then
 			log "WARNING :: Album \"${deezerAlbumTitle}\" failed to download after ${downloadTry} attempts...Skipping..."
 			return 1
 		fi
@@ -526,12 +526,10 @@ DeemixClientSetup() {
     log "INFO :: Setting up Deemix client"
 
     # 1️⃣ Determine ARL token
-    if [[ -n "${AUDIO_DEEMIX_ARL}" ]]; then
-        DEEMIX_ARL="${AUDIO_DEEMIX_ARL}"
-    elif [[ -n "${AUDIO_DEEMIX_ARL_FILE}" && -f "${AUDIO_DEEMIX_ARL_FILE}" ]]; then
+    if [[ -n "${AUDIO_DEEMIX_ARL_FILE}" && -f "${AUDIO_DEEMIX_ARL_FILE}" ]]; then
 		DEEMIX_ARL="$(tr -d '\r\n' <"${AUDIO_DEEMIX_ARL_FILE}")"
     else
-        log "ERROR :: No Deemix ARL token provided. Set AUDIO_DEEMIX_ARL or AUDIO_DEEMIX_ARL_FILE."
+        log "ERROR :: No Deemix ARL token provided. Set AUDIO_DEEMIX_ARL_FILE."
 		setUnhealthy
         exit 1
     fi
@@ -1048,19 +1046,43 @@ audioFlacVerification() {
   flac --totally-silent -t "$1" >/dev/null 2>&1
 }
 
-### Main Script Execution
-log "Starting Script...."
+###### Script Execution #####
 
-# Validate environment variables
-if [ -z "$AUDIO_INTERVAL" ] || ! [[ "$AUDIO_INTERVAL" =~ ^[0-9]+[smhd]$ ]]; then
-    log "ERROR :: AUDIO_INTERVAL is not set or invalid"
+### Preamble ###
+
+log "INFO :: Starting $scriptName version $scriptVersion"
+
+log "DEBUG :: AUDIO_APPLY_REPLAYGAIN=${AUDIO_APPLY_REPLAYGAIN}"
+log "DEBUG :: AUDIO_CACHE_MAX_AGE_DAYS=${AUDIO_CACHE_MAX_AGE_DAYS}"
+log "DEBUG :: AUDIO_DATA_PATH=${AUDIO_DATA_PATH}"
+log "DEBUG :: AUDIO_DEEMIX_CUSTOM_CONFIG=${AUDIO_DEEMIX_CUSTOM_CONFIG}"
+log "DEBUG :: AUDIO_DEEZER_API_RETRIES=${AUDIO_DEEZER_API_RETRIES}"
+log "DEBUG :: AUDIO_DEEZER_API_TIMEOUT=${AUDIO_DEEZER_API_TIMEOUT}"
+log "DEBUG :: AUDIO_DEEMIX_ARL_FILE=${AUDIO_DEEMIX_ARL_FILE}"
+log "DEBUG :: AUDIO_DOWNLOADCLIENT_NAME=${AUDIO_DOWNLOADCLIENT_NAME}"
+log "DEBUG :: AUDIO_DOWNLOAD_ATTEMPT_THRESHOLD=${AUDIO_DOWNLOAD_ATTEMPT_THRESHOLD}"
+log "DEBUG :: AUDIO_DOWNLOAD_CLIENT_TIMEOUT=${AUDIO_DOWNLOAD_CLIENT_TIMEOUT}"
+log "DEBUG :: AUDIO_FAILED_ATTEMPT_THRESHOLD=${AUDIO_FAILED_ATTEMPT_THRESHOLD}"
+log "DEBUG :: AUDIO_IGNORE_INSTRUMENTAL_RELEASES=${AUTOCONAUDIO_IGNORE_INSTRUMENTAL_RELEASESFIG_MEDIA_MANAGEMENT}"
+log "DEBUG :: AUDIO_INSTRUMENTAL_KEYWORDS=${AUDIO_INSTRUMENTAL_KEYWORDS}"
+log "DEBUG :: AUDIO_INTERVAL=${AUDIO_INTERVAL}"
+log "DEBUG :: AUDIO_LYRIC_TYPE=${AUDIO_LYRIC_TYPE}"
+log "DEBUG :: AUDIO_MATCH_DISTANCE_THRESHOLD=${AUDIO_MATCH_DISTANCE_THRESHOLD}"
+log "DEBUG :: AUDIO_PREFER_SPECIAL_EDITIONS=${AUDIO_PREFER_SPECIAL_EDITIONS}"
+log "DEBUG :: AUDIO_REQUIRE_QUALITY=${AUDIO_REQUIRE_QUALITY}"
+log "DEBUG :: AUDIO_RETRY_NOTFOUND_DAYS=${AUDIO_RETRY_NOTFOUND_DAYS}"
+log "DEBUG :: AUDIO_SHARED_LIDARR_PATH=${AUDIO_SHARED_LIDARR_PATH}"
+log "DEBUG :: AUDIO_TAGS=${AUDIO_TAGS}"
+log "DEBUG :: AUDIO_WORK_PATH=${AUDIO_WORK_PATH}"
+
+### Validation ###
+
+if ! [[ "$ARL_UPDATE_INTERVAL" =~ ^[0-9]+[smhd]$ ]]; then
+    log "ERROR :: ARL_UPDATE_INTERVAL is invalid"
     setUnhealthy
 fi
 
-# Print configuration settings
-log "INFO :: AUDIO_DOWNLOAD_PATH: ${AUDIO_DOWNLOAD_PATH}"
-log "INFO :: AUDIO_REQUIRE_QUALITY: ${AUDIO_REQUIRE_QUALITY}"
-log "INFO :: AUDIO_PREFER_SPECIAL_EDITIONS: ${AUDIO_PREFER_SPECIAL_EDITIONS}"
+### Main ###
 
 # Connect to Lidarr
 lidarrApiKey="$(getLidarrApiKey)" || setUnhealthy

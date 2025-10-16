@@ -8,16 +8,53 @@ scriptName="ARLChecker"
 #### Import Functions
 source /app/functions
 
-if [ -z "$ARL_UPDATE_INTERVAL" ] || ! [[ "$ARL_UPDATE_INTERVAL" =~ ^[0-9]+[smhd]$ ]]; then
-    log "ERROR :: ARL_UPDATE_INTERVAL is not set or invalid"
+### Preamble ###
+
+log "INFO :: Starting $scriptName version $scriptVersion"
+
+log "DEBUG :: ARLUPDATE_INTERVAL=${ARLUPDATE_INTERVAL}"
+log "DEBUG :: AUDIO_DEEMIX_ARL_FILE=${AUDIO_DEEMIX_ARL_FILE}"
+
+### Validation ###
+
+if ! [[ "$ARLUPDATE_INTERVAL" =~ ^[0-9]+[smhd]$ ]]; then
+    log "ERROR :: ARLUPDATE_INTERVAL is invalid (must be <number>[s|m|h|d])"
     setUnhealthy
+    exit 1
+fi
+if [[ ! -f "${AUDIO_DEEMIX_ARL_FILE}" ]]; then
+    log "ERROR :: ARL file not found at '${AUDIO_DEEMIX_ARL_FILE}'"
+    setUnhealthy
+    exit 1
 fi
 
-for (( ; ; )); do
-    log "INFO :: Running ARL Token Check..."
-    # run py script
-    python python/ARLChecker.py -c
+# Check ownership and permissions
+file_owner_uid=$(stat -c "%u" "${AUDIO_DEEMIX_ARL_FILE}")
+current_uid=$(id -u)
+file_perms=$(stat -c "%a" "${AUDIO_DEEMIX_ARL_FILE}")
 
-    log "ARL Token Check Complete. Sleeping for ${ARL_UPDATE_INTERVAL}."
-    sleep ${ARL_UPDATE_INTERVAL}
+if [[ "${file_owner_uid}" -ne "${current_uid}" ]]; then
+    log "ERROR :: ARL file '${AUDIO_DEEMIX_ARL_FILE}' is not owned by the current user (uid ${current_uid})"
+    setUnhealthy
+    exit 1
+fi
+
+if [[ "${file_perms}" != "600" ]]; then
+    log "ERROR :: ARL file '${AUDIO_DEEMIX_ARL_FILE}' has incorrect permissions (${file_perms}). Expected 600."
+    setUnhealthy
+    exit 1
+fi
+
+### Main ###
+
+while true; do
+    log "INFO :: Running ARL Token Check..."
+    if ! python python/ARLChecker.py -c; then
+        log "ERROR :: ARL token check failed — see Python logs for details"
+        setUnhealthy
+        exit 1
+    fi
+
+    log "INFO :: ARL Token Check Complete. Sleeping for ${ARLUPDATE_INTERVAL}."
+    sleep "${ARLUPDATE_INTERVAL}"
 done
