@@ -1013,14 +1013,14 @@ log "INFO :: 4"; sleep 1
 log "INFO :: 3"; sleep 1
 log "INFO :: 2"; sleep 1
 log "INFO :: 1"; sleep 1
-for (( ; ; )); do
+while true; do
 	# Cleanup old markers for albums previously marked as not found
 	NotFoundFolderCleaner
 
     ProcessLidarrWantedList "missing"
     ProcessLidarrWantedList "cutoff"
 
-	log "Script sleeping for ${AUDIO_INTERVAL}..."
+	log "INFO :: Script sleeping for ${AUDIO_INTERVAL}..."
 	sleep ${AUDIO_INTERVAL}
 done
 
