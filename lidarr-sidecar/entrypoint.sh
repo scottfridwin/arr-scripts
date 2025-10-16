@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+### Script values
+scriptVersion="1.0"
+scriptName="entrypoint"
+
 #### Import Functions
 source /app/functions.bash
 

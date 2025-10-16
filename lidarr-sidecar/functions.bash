@@ -75,6 +75,7 @@ getLidarrUrl() {
     
   # Construct and return the full URL
   lidarrUrl="http://${LIDARR_HOST}:${lidarrPort}${lidarrUrlBase}"
+  log "DEBUG :: lidarrUrl: ${lidarrUrl}"
 }
 
 # Perform a Lidarr API request with error handling and retries
