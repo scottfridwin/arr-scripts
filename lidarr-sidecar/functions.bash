@@ -134,6 +134,7 @@ LidarrApiRequest() {
             200|201|202|204)
                 # Successful request, return JSON body
                 echo "${body}"
+                break
                 ;;
             000)
                 # Connection failed — retry after waiting
