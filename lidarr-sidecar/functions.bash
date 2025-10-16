@@ -11,6 +11,14 @@ setUnhealthy () {
   exit 1
 }
 
+validateEnvironment() {
+  if [[ ! -f "${LIDARR_CONFIG_PATH}" ]]; then
+      log "ERROR :: File not found at '${LIDARR_CONFIG_PATH}'"
+      setUnhealthy
+      exit 1
+  fi
+}
+
 getLidarrApiKey() {
   local apiKey=""
   apiKey="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.ApiKey)"

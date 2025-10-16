@@ -7,6 +7,9 @@ source /app/functions.bash
 # Start with healthy status
 setHealthy
 
+# Validate environment variables
+validateEnvironment
+
 # Run all services
 for script in /app/services/*.bash; do
   bash "$script" &
