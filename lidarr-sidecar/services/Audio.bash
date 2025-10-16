@@ -220,7 +220,7 @@ AddLidarrDownloadClient() {
 		log "INFO :: ${AUDIO_DOWNLOADCLIENT_NAME} client not found, creating it..."
 
 		# Build JSON payload
-		read -r -d '' payload <<EOF
+        payload=$(cat <<EOF
 {
   "enable": true,
   "protocol": "usenet",
@@ -239,6 +239,7 @@ AddLidarrDownloadClient() {
   "tags": []
 }
 EOF
+        )
 
 		# Submit to API
 		LidarrApiRequest "POST" "downloadclient" "${payload}"
