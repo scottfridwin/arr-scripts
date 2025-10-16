@@ -1,7 +1,8 @@
 #!/bin/bash
+set -euo pipefail
 
 #### Import Functions
-source /app/functions
+source /app/functions.bash
 
 # Start with healthy status
 setHealthy

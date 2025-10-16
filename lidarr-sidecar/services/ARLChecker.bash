@@ -6,7 +6,7 @@ scriptVersion="2.0"
 scriptName="ARLChecker"
 
 #### Import Functions
-source /app/functions
+source /app/functions.bash
 
 ### Preamble ###
 

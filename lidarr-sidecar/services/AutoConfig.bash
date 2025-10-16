@@ -6,7 +6,7 @@ scriptVersion="3.2"
 scriptName="AutoConfig"
 
 #### Import Functions
-source /app/functions
+source /app/functions.bash
 
 ### Preamble ###
 

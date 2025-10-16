@@ -6,7 +6,7 @@ scriptVersion="2.48"
 scriptName="Audio"
 
 #### Import Functions
-source /app/functions
+source /app/functions.bash
 
 #### Constants
 readonly VARIOUS_ARTIST_ID="89ad4ac3-39f7-470e-963a-56509c546377"

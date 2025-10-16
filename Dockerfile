@@ -8,8 +8,6 @@ RUN apk add --no-cache \
     musl-locales-lang \
     flac \
     jq \
-    git \
-    gcc \
     ffmpeg \
     imagemagick \
     opus-tools \
@@ -19,7 +17,6 @@ RUN apk add --no-cache \
     uv \
     parallel \
     chromaprint \
-    npm \
     curl \
     bash
 
@@ -31,23 +28,20 @@ RUN uv pip install --system --upgrade --no-cache-dir --break-system-packages \
     jellyfish \
     beautifulsoup4 \
     yt-dlp \
-    beets \
     yq \
-    pyxDamerauLevenshtein \
     pyacoustid \
     requests \
     colorama \
-    python-telegram-bot \
     pylast \
     mutagen \
     r128gain \
-    tidal-dl \
     deemix \
     langdetect \
     apprise
 
 # Copy all scripts and config files
 COPY lidarr-sidecar/ /app/
+RUN chmod +x /app/entrypoint.sh
 
 # Set working directory
 WORKDIR /app
