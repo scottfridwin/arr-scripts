@@ -9,7 +9,7 @@
     "watchLibraryForChanges": false,
     "rescanAfterRefresh": "always",
     "allowFingerprinting": "newFiles",
-    "setPermissionsLinux": true,
+    "setPermissionsLinux": false,
     "chmodFolder": "775",
     "chownGroup": "",
     "skipFreeSpaceCheckWhenImporting": false,

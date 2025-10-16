@@ -839,6 +839,7 @@ FuzzyDeezerSearch() {
 
     # Call Deezer API
     if deezerSearch=$(CallDeezerAPI "${url}"); then
+        log "TRACE :: deezerSearch: ${deezerSearch}"
         resultsCount=$(jq 'map(.album.id) | unique | length' <<<"${deezerSearch}")
         log "INFO :: ${resultsCount} search results found for '${albumTitle}' by '${artistName}'"
 

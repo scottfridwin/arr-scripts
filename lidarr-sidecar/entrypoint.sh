@@ -25,6 +25,7 @@ setHealthy
 # Validate environment variables
 validateEnvironment
 
+# Verify Lidarr API access
 verifyLidarrApiAccess
 export lidarrApiKey lidarrUrl lidarrApiVersion
 
