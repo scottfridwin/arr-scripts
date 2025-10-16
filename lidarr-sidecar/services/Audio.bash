@@ -478,7 +478,7 @@ DeemixClientSetup() {
     fi
 
     # 2️⃣ Copy default config to /tmp
-    DEFAULT_CONFIG="/app/config/default_deemix_config.json"
+    DEFAULT_CONFIG="/app/config/deemix_config.json"
 
     if [[ ! -f "${DEFAULT_CONFIG}" ]]; then
         log "ERROR :: Default Deemix config not found at ${DEFAULT_CONFIG}"
@@ -969,7 +969,7 @@ audioFlacVerification() {
 
 ### Preamble ###
 
-log "INFO :: Starting $scriptName version $scriptVersion"
+log "INFO :: Starting ${scriptName} version ${scriptVersion}"
 
 log "DEBUG :: AUDIO_APPLY_REPLAYGAIN=${AUDIO_APPLY_REPLAYGAIN}"
 log "DEBUG :: AUDIO_CACHE_MAX_AGE_DAYS=${AUDIO_CACHE_MAX_AGE_DAYS}"

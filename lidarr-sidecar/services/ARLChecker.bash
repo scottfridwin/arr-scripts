@@ -10,7 +10,7 @@ source /app/functions.bash
 
 ### Preamble ###
 
-log "INFO :: Starting $scriptName version $scriptVersion"
+log "INFO :: Starting ${scriptName} version ${scriptVersion}"
 
 log "DEBUG :: ARLUPDATE_INTERVAL=${ARLUPDATE_INTERVAL}"
 log "DEBUG :: AUDIO_DEEMIX_ARL_FILE=${AUDIO_DEEMIX_ARL_FILE}"

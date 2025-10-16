@@ -10,7 +10,7 @@ source /app/functions.bash
 
 ### Preamble ###
 
-log "INFO :: Starting $scriptName version $scriptVersion"
+log "INFO :: Starting ${scriptName} version ${scriptVersion}"
 
 ### Validation ###
 

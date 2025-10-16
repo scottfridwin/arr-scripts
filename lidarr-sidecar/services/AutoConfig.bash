@@ -10,7 +10,7 @@ source /app/functions.bash
 
 ### Preamble ###
 
-log "INFO :: Starting $scriptName version $scriptVersion"
+log "INFO :: Starting ${scriptName} version ${scriptVersion}"
 
 log "DEBUG :: AUTOCONFIG_MEDIA_MANAGEMENT=${AUTOCONFIG_MEDIA_MANAGEMENT}"
 log "DEBUG :: AUTOCONFIG_MEDIA_MANAGEMENT_JSON=${AUTOCONFIG_MEDIA_MANAGEMENT_JSON}"
@@ -32,44 +32,49 @@ log "DEBUG :: AUTOCONFIG_TRACK_NAMING_JSON=${AUTOCONFIG_TRACK_NAMING_JSON}"
 ### Main ###
 
 updateLidarrConfig() {
-    local jsonFile="$1"
-    local apiPath="$2"
-    local settingName="$3"
+  log "TRACE :: Entering updateLidarrConfig..."
+    local jsonFile="${1}"
+    local apiPath="${2}"
+    local settingName="${3}"
 
-    if [ -z "$jsonFile" ] || [ ! -f "$jsonFile" ]; then
-        log "ERROR :: JSON config file not set or not found: $jsonFile"
+    if [ -z "${jsonFile}" ] || [ ! -f "${jsonFile}" ]; then
+        log "ERROR :: JSON config file not set or not found: ${jsonFile}"
         setUnhealthy
         exit 1
     fi
 
-    log "INFO :: Configuring Lidarr $settingName Settings"
+    log "INFO :: Configuring Lidarr ${settingName} Settings"
 
     # Read the JSON file and send it via LidarrApiRequest
     local jsonData
-    jsonData=$(<"$jsonFile")  # load JSON into a variable
+    jsonData=$(<"${jsonFile}")  # load JSON into a variable
 
-    LidarrApiRequest "PUT" "${apiPath}" "$jsonData" >/dev/null
-    log "INFO :: Successfully updated Lidarr $settingName"
+    log "TRACE :: apiPath: ${apiPath}"
+    log "TRACE :: jsonData: ${jsonData}"
+    LidarrApiRequest "PUT" "${apiPath}" "${jsonData}" >/dev/null
+    log "INFO :: Successfully updated Lidarr ${settingName}"
+
+  log "TRACE :: Exiting updateLidarrConfig..."
 }
 
 # Conditionally update each setting
-[ "$AUTOCONFIG_MEDIA_MANAGEMENT" == "true" ] && \
-    updateLidarrConfig "$AUTOCONFIG_MEDIA_MANAGEMENT_JSON" "config/mediamanagement" "Media Management"
+[ "${AUTOCONFIG_MEDIA_MANAGEMENT}" == "true" ] && \
+    updateLidarrConfig "${AUTOCONFIG_MEDIA_MANAGEMENT_JSON}" "config/mediamanagement" "Media Management"
 
-[ "$AUTOCONFIG_METADATA_CONSUMER" == "true" ] && \
-    updateLidarrConfig "$AUTOCONFIG_METADATA_CONSUMER_JSON" "metadata/1" "Metadata Consumer"
+[ "${AUTOCONFIG_METADATA_CONSUMER}" == "true" ] && \
+    updateLidarrConfig "${AUTOCONFIG_METADATA_CONSUMER_JSON}" "metadata/1" "Metadata Consumer"
 
-[ "$AUTOCONFIG_METADATA_PROVIDER" == "true" ] && \
-    updateLidarrConfig "$AUTOCONFIG_METADATA_PROVIDER_JSON" "config/metadataProvider" "Metadata Provider"
+[ "${AUTOCONFIG_METADATA_PROVIDER}" == "true" ] && \
+    updateLidarrConfig "${AUTOCONFIG_METADATA_PROVIDER_JSON}" "config/metadataProvider" "Metadata Provider"
 
-[ "$AUTOCONFIG_LIDARR_UI" == "true" ] && \
-    updateLidarrConfig "$AUTOCONFIG_LIDARR_UI_JSON" "config/ui" "UI"
+[ "${AUTOCONFIG_LIDARR_UI}" == "true" ] && \
+    updateLidarrConfig "${AUTOCONFIG_LIDARR_UI_JSON}" "config/ui" "UI"
 
-[ "$AUTOCONFIG_METADATA_PROFILE" == "true" ] && \
-    updateLidarrConfig "$AUTOCONFIG_METADATA_PROFILE_JSON" "metadataprofile/1" "Metadata Profile"
+[ "${AUTOCONFIG_METADATA_PROFILE}" == "true" ] && \
+    updateLidarrConfig "${AUTOCONFIG_METADATA_PROFILE_JSON}" "metadataprofile/1" "Metadata Profile"
 
-[ "$AUTOCONFIG_TRACK_NAMING" == "true" ] && \
-    updateLidarrConfig "$AUTOCONFIG_TRACK_NAMING_JSON" "config/naming" "Track Naming"
+[ "${AUTOCONFIG_TRACK_NAMING}" == "true" ] && \
+    updateLidarrConfig "${AUTOCONFIG_TRACK_NAMING_JSON}" "config/naming" "Track Naming"
 
 log "INFO :: Auto Configuration Complete"
 exit 0
