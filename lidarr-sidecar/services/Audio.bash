@@ -94,6 +94,7 @@ LidarrApiRequest() {
         case "${httpCode}" in
             200|201)
                 # Successful request, return JSON body
+                log "DEBUG :: LidarrApiRequest response body ${body}"
                 echo "${body}"
                 return 0
                 ;;
