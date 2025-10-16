@@ -130,7 +130,11 @@ LidarrApiRequest() {
                 while true; do
                     sleep 5
                     log "DEBUG :: Attempting to reconnect to Lidarr..."
-                    if curl -fs -H "X-Api-Key: ${lidarrApiKey}" "${lidarrUrl}/api/${lidarrApiVersion}/system/status" >/dev/null 2>&1; then
+                    # if curl -fs -H "X-Api-Key: ${lidarrApiKey}" "${lidarrUrl}/api/${lidarrApiVersion}/system/status" >/dev/null 2>&1; then
+                    #     log "INFO :: Lidarr connectivity restored, retrying previous request..."
+                    #     break
+                    # fi
+                    if curl -fs -H "X-Api-Key: ${lidarrApiKey}" "${lidarrUrl}/api/${lidarrApiVersion}/system/status" 2>&1 1>&2; then
                         log "INFO :: Lidarr connectivity restored, retrying previous request..."
                         break
                     fi
