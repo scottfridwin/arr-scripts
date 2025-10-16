@@ -240,7 +240,7 @@ CallDeezerAPI() {
 
 # Add custom tags if they don't already exist
 AddLidarrTags () {
-	local response tagCheck, httpCode
+	local response tagCheck httpCode
 
 	# Fetch existing tags once
 	response=$(LidarrApiRequest "GET" "/api/v1/tag")
