@@ -176,12 +176,12 @@ verifyLidarrApiAccess() {
   until [ -n "$apiTest" ]; do
     # # Try v3 first
     # lidarrApiVersion="v3"
-    # apiTest="$(curl -s "${url}/api/${lidarrApiVersion}/system/status?apikey=${key}" | jq -r .instanceName)"
+    # apiTest="$(curl -s "${lidarrUrl}/api/${lidarrApiVersion}/system/status?apikey=${lidarrApiKey}" | jq -r .instanceName)"
 
     # Fall back to v1 if v3 failed
     if [ -z "$apiTest" ]; then
       lidarrApiVersion="v1"
-      apiTest="$(curl -s "${url}/api/${lidarrApiVersion}/system/status?apikey=${key}" | jq -r .instanceName)"
+      apiTest="$(curl -s "${lidarrUrl}/api/${lidarrApiVersion}/system/status?apikey=${lidarrApiKey}" | jq -r .instanceName)"
     fi
 
     if [ -z "$apiTest" ]; then
