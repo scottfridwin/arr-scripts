@@ -96,9 +96,8 @@ LidarrApiRequest() {
     local response body httpCode
 
     if [[ -z "$lidarrUrl" || -z "$lidarrApiKey" || -z "$lidarrApiVersion" ]]; then
-        log "ERROR :: LidarrApiRequest requires lidarrUrl, lidarrApiKey, and lidarrApiVersion to be set"
-        setUnhealthy
-        exit 1
+        log "INFO :: Need to retrieve lidarr connection details in order to perform API requests"
+        verifyLidarrApiAccess
     fi
 
     # If method is not GET, ensure Lidarr isn’t busy
@@ -223,7 +222,4 @@ verifyLidarrApiAccess() {
   fi
 
   log "INFO :: Lidarr API access verified (URL: ${lidarrUrl}, API Version: ${lidarrApiVersion})"
-  export lidarrApiKey
-  export lidarrUrl
-  export lidarrApiVersion
 }

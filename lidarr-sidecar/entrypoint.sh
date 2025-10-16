@@ -25,9 +25,6 @@ setHealthy
 # Validate environment variables
 validateEnvironment
 
-# Ensure Lidarr connectivity
-verifyLidarrApiAccess
-
 ### Main ###
 
 # Run all services
