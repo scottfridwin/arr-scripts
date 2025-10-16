@@ -50,15 +50,22 @@ validateEnvironment() {
 
 # Retrieves the Lidarr API key from the config file
 getLidarrApiKey() {
+  [[ -n "$lidarrApiKey" ]] && return 0  # already set
+
   lidarrApiKey="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.ApiKey)"
   if [ -z "$lidarrApiKey" ] || [ "$lidarrApiKey" == "null" ]; then
     log "ERROR :: Unable to retrieve Lidarr API key from configuration file: $LIDARR_CONFIG_PATH"
     setUnhealthy
+    exit 1
   fi
+
+  [[ -n "$lidarrApiKey" ]] && log "DEBUG :: lidarrApiKey successfully set"
 }
 
 # Constructs the Lidarr base URL from environment variables and config file
 getLidarrUrl() {
+  [[ -n "$lidarrUrl" ]] && return 0  # already set
+
   # Get Lidarr base URL. Usually blank, but can be set in Lidarr settings.
   local lidarrUrlBase="$(cat "${LIDARR_CONFIG_PATH}" | xq | jq -r .Config.UrlBase)"
   if [ "$lidarrUrlBase" == "null" ]; then
@@ -170,7 +177,8 @@ verifyLidarrApiAccess() {
 
   if [ -z "$lidarrUrl" ] || [ -z "$lidarrApiKey" ]; then
     log "ERROR :: verifyLidarrApiAccess requires both URL and API key"
-    return 1
+    setUnhealthy
+    exit 1
   fi
 
   local apiTest=""
@@ -195,5 +203,6 @@ verifyLidarrApiAccess() {
   if [ "$lidarrApiVersion" != "v1" ]; then
     log "ERROR :: Only Lidarr v1 API is supported."
     setUnhealthy
+    exit 1
   fi
 }

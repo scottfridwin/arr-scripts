@@ -39,6 +39,7 @@ updateLidarrConfig() {
     if [ -z "$jsonFile" ] || [ ! -f "$jsonFile" ]; then
         log "ERROR :: JSON config file not set or not found: $jsonFile"
         setUnhealthy
+        exit 1
     fi
 
     log "INFO :: Configuring Lidarr $settingName Settings"

@@ -317,6 +317,7 @@ DownloadProcess () {
 	if [ ! -d "${AUDIO_SHARED_LIDARR_PATH}" ]; then
 		log "ERROR :: Shared Lidarr Path not found: ${AUDIO_SHARED_LIDARR_PATH}"
 		setUnhealthy
+        exit 1
 	fi
 
 	local deezerAlbumId deezerAlbumTitle deezerAlbumTitleClean deezerAlbumTrackCount deezerArtistName deezerArtistNameClean downloadedReleaseDate downloadedReleaseYear
