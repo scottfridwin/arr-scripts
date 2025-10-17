@@ -627,6 +627,40 @@ SearchProcess () {
         return
     fi
 
+
+    tmp_lidarrAlbumData="$(curl -s "$lidarrUrl/api/v1/album/$wantedAlbumId?apikey=${lidarrApiKey}")"
+    tmp_lidarrArtistData=$(echo "${lidarrAlbumData}" | jq -r ".artist")    
+    tmp_lidarrArtistName=$(echo "${tmp_lidarrArtistData}" | jq -r ".artistName")
+    tmp_lidarrArtistNameSearchSanitized="$(echo "$tmp_lidarrArtistName" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g")"
+    tmp_albumArtistNameSearch="$(jq -R -r @uri <<<"${tmp_lidarrArtistNameSearchSanitized}")"
+    log "DEBUG :: tmp_albumArtistNameSearch: ${tmp_albumArtistNameSearch}"
+
+    tmp_lidarrAlbumReleaseIds=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases | sort_by(.trackCount) | reverse | .[].id")
+    for tmp_releaseId in $(echo "$tmp_lidarrAlbumReleaseIds"); do
+        tmp_releaseTitle=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases[] | select(.id==$tmp_releaseId) | .title")
+        tmp_releaseDisambiguation=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases[] | select(.id==$tmp_releaseId) | .disambiguation")
+        if [ -z "$tmp_releaseDisambiguation" ]; then
+            tmp_releaseDisambiguation=""
+        else
+            tmp_releaseDisambiguation=" ($tmp_releaseDisambiguation)"
+        fi
+        echo "${tmp_releaseTitle}${tmp_releaseDisambiguation}" >> /tmp/release-list
+    fi
+    tmp_lidarrAlbumTitle=$(echo "$tmp_lidarrAlbumData" | jq -r ".title")
+    echo "$tmp_lidarrAlbumTitle" >> /tmp/release-list
+    OLDIFS="$IFS"
+    IFS=$'\n'
+    tmp_lidarrReleaseTitles=$(cat /tmp/release-list | awk '{ print length, $0 }' | sort -u -n -s -r | cut -d" " -f2-)
+    tmp_lidarrReleaseTitles=($(echo "$tmp_lidarrReleaseTitles"))
+    IFS="$OLDIFS"
+    for tmp_title in ${!tmp_lidarrReleaseTitles[@]}; do
+        tmp_lidarrReleaseTitle="${tmp_lidarrReleaseTitles[$tmp_title]}"
+        tmp_lidarrAlbumReleaseTitleSearchClean="$(echo "$tmp_lidarrReleaseTitle" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
+        tmp_albumTitleSearch="$(jq -R -r @uri <<<"${tmp_lidarrAlbumReleaseTitleSearchClean}")"
+        log "DEBUG :: tmp_albumTitleSearch: ${tmp_albumTitleSearch}"
+    done
+    rm -f /tmp/release-list
+
 	# Extract artist and album info
     local lidarrArtistData lidarrArtistName lidarrArtistId lidarrArtistForeignArtistId
     lidarrArtistData=$(echo "$lidarrAlbumData" | jq -r ".artist")
