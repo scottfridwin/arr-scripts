@@ -794,6 +794,7 @@ SearchProcess () {
 					for dId in "${!deezerArtistIds[@]}"; do
 						local deezerArtistId="${deezerArtistIds[$dId]}"
 						ArtistDeezerSearch matchFound "${lyricType}" "${deezerArtistId}" "${lidarrReleaseTitle}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}"
+		                log "DEBUG :: matchFound: ${matchFound}"
 					done
 				fi
 			fi
@@ -801,6 +802,7 @@ SearchProcess () {
 			# Fuzzy search
 			if [ "${matchFound}" == "false" ]; then
 				FuzzyDeezerSearch matchFound "${lyricType}" "${lidarrArtistName}" "${lidarrReleaseTitle}" "${lidarrArtistForeignArtistId}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}"
+                log "DEBUG :: matchFound: ${matchFound}"
 			fi
 
 			# End search if a match was found
@@ -1054,7 +1056,7 @@ DownloadBestMatch() {
 
         if deezerAlbumData=$(GetDeezerAlbumInfo "${bestMatchID}"); then
             echo "${deezerAlbumData}" | DownloadProcess "${mbAlbumId}" "${mbReleaseGroupId}"
-			eval "$matchVarName=true"
+            eval "$matchVarName=true"
         else
             log "WARNING :: Failed to fetch album info for Deezer album ID ${bestMatchID}. Unable to download..."
         fi
