@@ -2,7 +2,6 @@
 set -euo pipefail
 
 ### Script values
-scriptVersion="3.2"
 scriptName="AutoConfig"
 
 #### Import Functions
@@ -10,7 +9,7 @@ source /app/functions.bash
 
 ### Preamble ###
 
-log "INFO :: Starting ${scriptName} version ${scriptVersion}"
+log "INFO :: Starting ${scriptName}"
 
 log "DEBUG :: AUTOCONFIG_MEDIA_MANAGEMENT=${AUTOCONFIG_MEDIA_MANAGEMENT}"
 log "DEBUG :: AUTOCONFIG_MEDIA_MANAGEMENT_JSON=${AUTOCONFIG_MEDIA_MANAGEMENT_JSON}"

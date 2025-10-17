@@ -10,7 +10,7 @@ log() {
 
   # Ensure message starts with a valid level
   if [[ ! "$msg" =~ ^(TRACE|DEBUG|INFO|WARNING|ERROR) ]]; then
-    echo "CRITICAL :: ${scriptName} :: v${scriptVersion} :: Invalid log message format: '$msg'" >&2
+    echo "CRITICAL :: ${scriptName} :: Invalid log message format: '$msg'" >&2
     exit 1
   fi
 
@@ -19,7 +19,7 @@ log() {
 
   # Compare priorities
   if ((LOG_PRIORITY[${level}] >= LOG_PRIORITY[${LOG_LEVEL}])); then
-    echo "${scriptName} :: v${scriptVersion} :: ${msg}" >&2
+    echo "${scriptName} :: ${msg}" >&2
   fi
 }
 
@@ -38,7 +38,7 @@ setUnhealthy() {
 validateEnvironment() {
   log "TRACE :: Entering validateEnvironment..."
   [[ "${LOG_LEVEL}" =~ ^(TRACE|DEBUG|INFO|WARNING|ERROR)$ ]] || {
-    echo "CRITICAL :: ${scriptName} :: v${scriptVersion} :: Invalid LOG_LEVEL value: '${LOG_LEVEL}'. Must be one of: TRACE, DEBUG, INFO, WARNING, ERROR" >&2
+    echo "CRITICAL :: ${scriptName} :: Invalid LOG_LEVEL value: '${LOG_LEVEL}'. Must be one of: TRACE, DEBUG, INFO, WARNING, ERROR" >&2
     setUnhealthy
     exit 1
   }

@@ -2,7 +2,6 @@
 set -euo pipefail
 
 ### Script values
-scriptVersion="1.0"
 scriptName="entrypoint"
 
 #### Import Functions
@@ -10,7 +9,7 @@ source /app/functions.bash
 
 ### Preamble ###
 
-log "INFO :: Starting ${scriptName} version ${scriptVersion}"
+log "INFO :: Starting ${scriptName}"
 
 ### Validation ###
 

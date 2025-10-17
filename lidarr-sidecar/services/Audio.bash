@@ -2,7 +2,6 @@
 set -euo pipefail
 
 ### Script values
-scriptVersion="2.48"
 scriptName="Audio"
 
 #### Import Functions
@@ -1087,7 +1086,7 @@ audioFlacVerification() {
 
 ### Preamble ###
 
-log "INFO :: Starting ${scriptName} version ${scriptVersion}"
+log "INFO :: Starting ${scriptName}"
 
 log "DEBUG :: AUDIO_APPLY_REPLAYGAIN=${AUDIO_APPLY_REPLAYGAIN}"
 log "DEBUG :: AUDIO_CACHE_MAX_AGE_DAYS=${AUDIO_CACHE_MAX_AGE_DAYS}"
