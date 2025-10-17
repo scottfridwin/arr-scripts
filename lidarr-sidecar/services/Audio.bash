@@ -447,17 +447,15 @@ DownloadProcess () {
 	find "${AUDIO_WORK_PATH}/staging/" -type d -mindepth 1 -maxdepth 1 -exec rm -rf {} \; 2>/dev/null
 
 	# Add the musicbrainz album id to the files
-	{
-		shopt -s nullglob
-		# TODO: Tag more than just FLAC files if needed
-		for file in "${AUDIO_WORK_PATH}"/staging/*.{flac}; do
-	        log "DEBUG :: file $file"
-			[ -f "$file" ] || continue  # extra safety in case glob expands to nothing
-			metaflac --set-tag=MUSICBRAINZ_ALBUMID="$mbAlbumId" "$file"
-			metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
-		done
-		shopt -u nullglob
-	}
+    shopt -s nullglob
+    # TODO: Tag more than just FLAC files if needed
+    for file in "${AUDIO_WORK_PATH}"/staging/*.flac; do
+        log "DEBUG :: file $file"
+        [ -f "$file" ] || continue  # extra safety in case glob expands to nothing
+        metaflac --set-tag=MUSICBRAINZ_ALBUMID="$mbAlbumId" "$file"
+        metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
+    done
+    shopt -u nullglob
 
 	# Log Completed Download
 	log "INFO :: Album \"${deezerAlbumTitle}\" successfully downloaded"
