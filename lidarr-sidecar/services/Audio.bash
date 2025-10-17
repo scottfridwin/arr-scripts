@@ -40,7 +40,8 @@ LevenshteinDistance() {
             local s1_char="${s1:i-1:1}"
             for ((j=1; j<=len_s2; j++)); do
                 local s2_char="${s2:j-1:1}"
-                local cost=$(( s1_char == s2_char ? 0 : 1 ))
+                local cost=1
+                [[ "$s1_char" == "$s2_char" ]] && cost=0
 
                 local del=$(( prev[j] + 1 ))
                 local ins=$(( curr[j-1] + 1 ))
