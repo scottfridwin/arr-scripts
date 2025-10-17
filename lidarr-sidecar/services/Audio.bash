@@ -322,10 +322,6 @@ DownloadProcess () {
 		mkdir -p "${AUDIO_DATA_PATH}"/failed
 	fi
 
-	if [ ! -d "${AUDIO_DATA_PATH}/notfound" ]; then
-		mkdir -p "${AUDIO_DATA_PATH}"/notfound
-	fi
-
 	if [ ! -d "${AUDIO_SHARED_LIDARR_PATH}" ]; then
 		log "ERROR :: Shared Lidarr Path not found: ${AUDIO_SHARED_LIDARR_PATH}"
 		setUnhealthy
@@ -579,6 +575,10 @@ SearchProcess () {
         log "WARNING :: No album ID provided to SearchProcess"
         return
     fi
+
+	if [ ! -d "${AUDIO_DATA_PATH}/notfound" ]; then
+		mkdir -p "${AUDIO_DATA_PATH}"/notfound
+	fi
 
 	# Fetch album data from Lidarr
 	local lidarrAlbumData
