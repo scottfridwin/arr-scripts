@@ -995,7 +995,7 @@ DownloadBestMatch() {
     for ((i = 0; i < albumsCount; i++)); do
         local deezerAlbumData deezerAlbumID deezerAlbumTitle deezerAlbumTitleClean
         local deezerAlbumTrackCount downloadedReleaseDate downloadedReleaseYear
-        local trackNumberMatch diff trackDiff
+        local diff trackDiff
 
         deezerAlbumData=$(jq -c ".[$i]" <<<"${albums}")
         deezerAlbumID=$(jq -r ".id" <<<"${deezerAlbumData}")
@@ -1015,10 +1015,6 @@ DownloadBestMatch() {
             continue
         fi
 
-        # Check if number of tracks matches exactly
-        trackNumberMatch=0
-        ((deezerAlbumTrackCount == trackCount)) && trackNumberMatch=1
-
         # Compute Levenshtein distance
         diff=$(LevenshteinDistance "${releaseTitleClean,,}" "${deezerAlbumTitleClean,,}")
         trackDiff=$((trackCount > deezerAlbumTrackCount ? trackCount - deezerAlbumTrackCount : deezerAlbumTrackCount - trackCount))
@@ -1033,10 +1029,12 @@ DownloadBestMatch() {
         fi
 
         # Perfect match
-        if ((diff == 0 && trackNumberMatch == 1)); then
+        if ((diff == 0 && trackDiff == 0)); then
             bestMatchID="${deezerAlbumID}"
             bestMatchTitle="${deezerAlbumTitle}"
             bestMatchYear="${downloadedReleaseYear}"
+            bestMatchDistance="${diff}"
+            bestMatchTrackDiff="${trackDiff}"
             log "INFO :: Perfect match found :: ${bestMatchTitle} (${bestMatchYear})"
             break
         fi

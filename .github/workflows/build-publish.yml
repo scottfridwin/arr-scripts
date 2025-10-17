@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  version: 0.1.${{ github.run_number }}
+  version: 0.2.${{ github.run_number }}
   imageRepository: ghcr.io/scottfridwin/lidarr-sidecar
   imageName: lidarr-sidecar
 
