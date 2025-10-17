@@ -536,7 +536,9 @@ ProcessLidarrWantedList () {
 
     # Preload all notfound IDs into memory (only once)
     mapfile -t notfound < <(
-        find "${AUDIO_DATA_PATH}/notfound/" -type f -printf "%f\n" | sed 's/--.*//' | sort
+        find "${AUDIO_DATA_PATH}/notfound/" -type f | while read -r f; do
+            basename "$f"
+        done | sed 's/--.*//' | sort
     )
 
     local totalPages=$(( (totalRecords + pageSize - 1) / pageSize ))
