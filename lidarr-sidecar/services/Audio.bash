@@ -10,8 +10,8 @@ source /app/functions.bash
 
 #### Constants
 readonly VARIOUS_ARTIST_ID="89ad4ac3-39f7-470e-963a-56509c546377"
-readonly DEEMIX_CONFIG_PATH="/tmp/deemix_config.json"
-readonly DEEMIX_CONFIG_DIR="/tmp/deemix_config"
+readonly DEEMIX_CONFIG_DIR="/tmp/deemix"
+readonly DEEMIX_CONFIG_PATH="${DEEMIX_CONFIG_DIR}/config.json"
 
 # Levenshtein Distance calculation
 LevenshteinDistance() {
@@ -392,15 +392,17 @@ DownloadProcess () {
 
         local deemixQuality=flac
 		log "INFO :: Download attempt #${downloadTry} for album \"${deezerAlbumTitle}\""
-		DEEMIX_ARL="${DEEMIX_ARL}" \
-        DEEMIX_CONFIG="${DEEMIX_CONFIG_DIR}" \
-		deemix \
-			-b "${deemixQuality}" \
-			-p "${AUDIO_WORK_PATH}/staging" \
-			"https://www.deezer.com/album/${deezerAlbumId}" 2>&1
+        {
+            cd ${DEEMIX_CONFIG_DIR}
+            DEEMIX_ARL="${DEEMIX_ARL}" \
+            deemix \
+                -b "${deemixQuality}" \
+                -p "${AUDIO_WORK_PATH}/staging" \
+                "https://www.deezer.com/album/${deezerAlbumId}" 2>&1
 
-		# Clean up any temporary deemix data
-		rm -rf /tmp/deemix-imgs 2>/dev/null || true
+            # Clean up any temporary deemix data
+            rm -rf /tmp/deemix-imgs 2>/dev/null || true
+        }
 
 		# Check if any audio files were downloaded
 		local clientTestDlCount
@@ -530,7 +532,7 @@ DeemixClientSetup() {
     fi
 
     mkdir -p "${DEEMIX_CONFIG_DIR}"
-    cp -f "${DEFAULT_CONFIG}" "${DEEMIX_CONFIG_DIR}/config.json"
+    cp -f "${DEFAULT_CONFIG}" "${DEEMIX_CONFIG_PATH}"
 
     # 3️⃣ Merge custom config if provided
     if [[ -n "${AUDIO_DEEMIX_CUSTOM_CONFIG}" ]]; then
@@ -543,10 +545,10 @@ DeemixClientSetup() {
 
         # Merge default and custom config; custom overrides defaults
         TMP_CONFIG_CONTENT=$(jq -s '.[0] * .[1]' \
-            <(cat "${DEEMIX_CONFIG_PATH}/config.json") \
+            <(cat "${DEEMIX_CONFIG_PATH}") \
             <(echo "${CUSTOM_CONFIG_CONTENT}"))
 
-        echo "${TMP_CONFIG_CONTENT}" > "${DEEMIX_CONFIG_PATH}/config.json"
+        echo "${TMP_CONFIG_CONTENT}" > "${DEEMIX_CONFIG_PATH}"
         log "INFO :: Custom Deemix config merged into /tmp/deemix_config.json"
     fi
 
