@@ -95,6 +95,7 @@ GetDeezerAlbumInfo () {
             #log "DEBUG :: albumJson: ${albumJson}"
             echo "${albumJson}"
             returnCode=0
+            break;
         else
             log "WARNING :: Invalid JSON from Deezer for album ${albumId}, retrying... ($((retries+1))/${maxRetries})"
             rm -f "${albumCacheFile}"
@@ -146,6 +147,7 @@ GetDeezerArtistAlbums() {
             #log "DEBUG :: artistJson: ${artistJson}"
             echo "${artistJson}"
             returnCode=0
+            break;
         else
             log "WARNING :: Invalid JSON for artist ${artistId} albums, retrying... ($((retries+1))/${maxRetries})"
             rm -f "${artistCacheFile}"
