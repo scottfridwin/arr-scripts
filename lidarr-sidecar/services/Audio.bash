@@ -363,10 +363,10 @@ DownloadProcess () {
 	local deezerAlbumId deezerAlbumTitle deezerAlbumTitleClean deezerAlbumTrackCount deezerArtistName deezerArtistNameClean downloadedReleaseDate downloadedReleaseYear
 	deezerAlbumId=$(echo "${deezerAlbumJson}" | jq -r ".id")
 	deezerAlbumTitle=$(echo "${deezerAlbumJson}" | jq -r ".title" | head -n1)
-	deezerAlbumTitleClean="$(echo "${deezerAlbumTitle}" | sed -e "s%[^[:alpha:][:digit:]._' ]% %g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
+	deezerAlbumTitleClean=normalize_string "$deezerAlbumTitle"
  	deezerAlbumTrackCount="$(echo "${deezerAlbumJson}" | jq -r .nb_tracks)"
 	deezerArtistName=$(jq -r '.artist.name' <<<"${deezerAlbumJson}")
-	deezerArtistNameClean="$(echo "${deezerArtistName}" | sed -e "s%[^[:alpha:][:digit:]._' ]% %g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
+	deezerArtistNameClean=normalize_string "$deezerArtistName"
 	downloadedReleaseDate=$(jq -r .release_date <<<"${deezerAlbumJson}")
 	downloadedReleaseYear="${downloadedReleaseDate:0:4}"
 
@@ -987,7 +987,7 @@ DownloadBestMatch() {
 
 	# Normalize Lidarr release title
 	local releaseTitleClean
-	releaseTitleClean=$(echo "$releaseTitle" | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')
+	releaseTitleClean=$(normalize_string "$releaseTitle")
 	releaseTitleClean="${releaseTitleClean:0:130}"
 
 	for ((i=0; i<albumsCount; i++)); do
@@ -1000,9 +1000,7 @@ DownloadBestMatch() {
         deezerAlbumTitle=$(jq -r ".title" <<<"${deezerAlbumData}")
 
 		# --- Normalize title ---
-        deezerAlbumTitleClean=$(echo "${deezerAlbumTitle}" \
-            | sed -e "s%[^[:alpha:][:digit:]]%%g" -e "s/  */ /g" \
-            | sed 's/^[.]*//' | sed 's/[.]*$//' | sed 's/^ *//' | sed 's/ *$//')
+        deezerAlbumTitleClean=$(normalize_string "$deezerAlbumTitle")
         deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"
 
 		# Get album info from Deezer
