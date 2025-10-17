@@ -645,7 +645,7 @@ SearchProcess () {
             tmp_releaseDisambiguation=" ($tmp_releaseDisambiguation)"
         fi
         echo "${tmp_releaseTitle}${tmp_releaseDisambiguation}" >> /tmp/release-list
-    fi
+    done
     tmp_lidarrAlbumTitle=$(echo "$tmp_lidarrAlbumData" | jq -r ".title")
     echo "$tmp_lidarrAlbumTitle" >> /tmp/release-list
     OLDIFS="$IFS"
