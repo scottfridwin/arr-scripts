@@ -225,6 +225,9 @@ verifyLidarrApiAccess() {
     exit 1
   fi
 
+  # Export variables for use in other functions and subshells
+  export lidarrUrl lidarrApiKey lidarrApiVersion
+
   log "INFO :: Lidarr API access verified (URL: ${lidarrUrl}, API Version: ${lidarrApiVersion})"
   log "TRACE :: Exiting verifyLidarrApiAccess..."
 }

@@ -27,7 +27,6 @@ validateEnvironment
 
 # Verify Lidarr API access
 verifyLidarrApiAccess
-export lidarrApiKey lidarrUrl lidarrApiVersion
 
 ### Main ###
 
