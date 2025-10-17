@@ -321,8 +321,10 @@ DownloadProcess() {
     # stdin - JSON data from Deezer API for the album
     # $1 -> MusicBrainz album id
     # $2 -> MusicBrainz release group id
+    # $3 -> Lidarr album title
     local mbAlbumId="${1}"
     local mbReleaseGroupId="${2}"
+    local lidarrAlbumTitle="${3}"
 
     local deezerAlbumJson
     deezerAlbumJson=$(cat) # read JSON object from stdin
@@ -461,6 +463,7 @@ DownloadProcess() {
         [ -f "$file" ] || continue # extra safety in case glob expands to nothing
         metaflac --set-tag=MUSICBRAINZ_ALBUMID="$mbAlbumId" "$file"
         metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
+        metaflac --set-tag=ALBUM="$lidarrAlbumTitle" "$file"
         log "DEBUG :: File \"${file}\" tagged with MUSICBRAINZ_ALBUMID=${mbAlbumId} and MUSICBRAINZ_RELEASEGROUPID=${mbReleaseGroupId}"
     done
     shopt -u nullglob
@@ -795,7 +798,7 @@ SearchProcess() {
                     log "DEBUG :: deezerArtistIds: ${deezerArtistIds[*]}"
                     for dId in "${!deezerArtistIds[@]}"; do
                         local deezerArtistId="${deezerArtistIds[$dId]}"
-                        ArtistDeezerSearch matchFound "${lyricType}" "${deezerArtistId}" "${lidarrReleaseTitle}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}"
+                        ArtistDeezerSearch matchFound "${lyricType}" "${deezerArtistId}" "${lidarrReleaseTitle}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}" "${lidarrAlbumTitle}"
                         log "DEBUG :: matchFound: ${matchFound}"
                     done
                 fi
@@ -803,7 +806,7 @@ SearchProcess() {
 
             # Fuzzy search
             if [ "${matchFound}" == "false" ]; then
-                FuzzyDeezerSearch matchFound "${lyricType}" "${lidarrArtistName}" "${lidarrReleaseTitle}" "${lidarrArtistForeignArtistId}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}"
+                FuzzyDeezerSearch matchFound "${lyricType}" "${lidarrArtistName}" "${lidarrReleaseTitle}" "${lidarrArtistForeignArtistId}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}" "${lidarrAlbumTitle}"
                 log "DEBUG :: matchFound: ${matchFound}"
             fi
 
@@ -845,6 +848,7 @@ ArtistDeezerSearch() {
     # $5 -> lidarr album track count
     # $6 -> MusicBrainz album id
     # $7 -> MusicBrainz release group id
+    # $8 -> Lidarr album title
     local matchVarName="${1}"
     local lyricType="${2}"
     local artistId="${3}"
@@ -852,6 +856,7 @@ ArtistDeezerSearch() {
     local trackCount="${5}"
     local mbAlbumId="${6}"
     local mbReleaseGroupId="${7}"
+    local lidarrAlbumTitle="${8}"
 
     local explicitFilter="false"
     if [[ "${lyricType}" == "Explicit" ]]; then
@@ -871,7 +876,7 @@ ArtistDeezerSearch() {
 
         # Pass filtered albums to the DownloadBestMatch function
         if ((resultsCount > 0)); then
-            DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" <<<"${filteredAlbums}"
+            DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" "${lidarrAlbumTitle}" <<<"${filteredAlbums}"
 
         fi
     else
@@ -891,6 +896,7 @@ FuzzyDeezerSearch() {
     # $6 -> lidarr album track count
     # $7 -> MusicBrainz album id
     # $8 -> MusicBrainz release group id
+    # $9 -> Lidarr album title
 
     local matchVarName="${1}"
     local lyricFlag="${2}"
@@ -900,6 +906,7 @@ FuzzyDeezerSearch() {
     local trackCount="${6}"
     local mbAlbumId="${7}"
     local mbReleaseGroupId="${8}"
+    local lidarrAlbumTitle="${9}"
     local type
     local deezerSearch
     local resultsCount
@@ -941,7 +948,7 @@ FuzzyDeezerSearch() {
                 albumsJson=$(jq '[.data[].album] | unique_by(.id)' <<<"${deezerSearch}")
                 uniqueResults=$(jq 'length' <<<"${albumsJson}")
                 log "INFO :: ${uniqueResults} unique search results found for '${albumTitle}' by '${artistName}'"
-                DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" <<<"${albumsJson}"
+                DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" "${lidarrAlbumTitle}" <<<"${albumsJson}"
             else
                 log "INFO :: No results found via Fuzzy Search for '${albumTitle}' by '${artistName}'"
             fi
@@ -962,6 +969,7 @@ DownloadBestMatch() {
     # $3 -> track count of Lidarr release
     # $4 -> MusicBrainz album id
     # $5 -> MusicBrainz release group id
+    # $6 -> Lidarr album title
     # stdin -> JSON array containing list of Deezer albums to check
 
     local matchVarName="${1}"
@@ -969,6 +977,7 @@ DownloadBestMatch() {
     local trackCount="${3}"
     local mbAlbumId="${4}"
     local mbReleaseGroupId="${5}"
+    local lidarrAlbumTitle="${6}"
     local albums albumsCount bestMatchID bestMatchTitle bestMatchYear
     local bestMatchDistance bestMatchTrackDiff
 
@@ -980,6 +989,7 @@ DownloadBestMatch() {
     log "DEBUG :: trackCount: ${trackCount}"
     log "DEBUG :: mbAlbumId: ${mbAlbumId}"
     log "DEBUG :: mbReleaseGroupId: ${mbReleaseGroupId}"
+    log "DEBUG :: lidarrAlbumTitle: ${lidarrAlbumTitle}"
 
     bestMatchID=""
     bestMatchTitle=""
@@ -1054,7 +1064,7 @@ DownloadBestMatch() {
         log "INFO :: Using best match :: ${bestMatchTitle} (${bestMatchYear}) :: Distance=${bestMatchDistance} TrackDiff=${bestMatchTrackDiff}"
 
         if deezerAlbumData=$(GetDeezerAlbumInfo "${bestMatchID}"); then
-            echo "${deezerAlbumData}" | DownloadProcess "${mbAlbumId}" "${mbReleaseGroupId}"
+            DownloadProcess "${mbAlbumId}" "${mbReleaseGroupId}" "${lidarrAlbumTitle}" <<<"${deezerAlbumData}"
             eval "$matchVarName=true"
         else
             log "WARNING :: Failed to fetch album info for Deezer album ID ${bestMatchID}. Unable to download..."
