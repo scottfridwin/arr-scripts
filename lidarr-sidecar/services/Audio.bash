@@ -92,7 +92,7 @@ GetDeezerAlbumInfo () {
 
         # Validate JSON
         if albumJson=$(jq -e . <"${albumCacheFile}" 2>/dev/null); then
-            log "DEBUG :: albumJson: ${albumJson}"
+            #log "DEBUG :: albumJson: ${albumJson}"
             echo "${albumJson}"
             returnCode=0
         else
@@ -143,7 +143,7 @@ GetDeezerArtistAlbums() {
 
         # Validate JSON
         if artistJson=$(jq -e . <"${artistCacheFile}" 2>/dev/null); then
-            log "DEBUG :: artistJson: ${artistJson}"
+            #log "DEBUG :: artistJson: ${artistJson}"
             echo "${artistJson}"
             returnCode=0
         else
@@ -185,7 +185,7 @@ CallDeezerAPI() {
         body=$(sed '$d' <<<"${response}")
 
         if [[ "${httpCode}" -eq 200 ]]; then
-            log "DEBUG :: body: ${body}"
+            #log "DEBUG :: body: ${body}"
             echo "${body}"  # Return JSON body
             returnCode=0
             break
