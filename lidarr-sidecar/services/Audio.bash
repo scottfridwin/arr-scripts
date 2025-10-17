@@ -840,14 +840,20 @@ FuzzyDeezerSearch() {
     # Call Deezer API
     if deezerSearch=$(CallDeezerAPI "${url}"); then
         log "TRACE :: deezerSearch: ${deezerSearch}"
-        resultsCount=$(jq 'map(.album.id) | unique | length' <<<"${deezerSearch}")
-        log "INFO :: ${resultsCount} search results found for '${albumTitle}' by '${artistName}'"
-
-        if [[ -n "${deezerSearch}" ]]; then
-            albumsJson=$(jq '[.[].album] | unique_by(.id)' <<<"${deezerSearch}")
-            echo "${albumsJson}" | DownloadBestMatch ${matchVarName} ${albumTitle} ${trackCount} "${mbAlbumId}" "${mbReleaseGroupId}"
+        if jq -e '.data and .total' <<<"${deezerSearch}" >/dev/null 2>&1; then
+            resultsCount=$(jq '.total' <<<"${deezerSearch}")
+            log "DEBUG :: ${resultsCount} search results found for '${albumTitle}' by '${artistName}'"
+            if [[ "$resultsCount" -gt 0 ]]; then
+                albumsJson=$(jq '[.data[].album] | unique_by(.id)' <<<"${deezerSearch}")
+                uniqueResults=$(jq 'length' <<<"${albumsJson}")
+                log "INFO :: ${uniqueResults} unique search results found for '${albumTitle}' by '${artistName}'"
+                echo "${albumsJson}" | DownloadBestMatch ${matchVarName} ${albumTitle} ${trackCount} "${mbAlbumId}" "${mbReleaseGroupId}"
+            else
+                log "INFO :: No results found via Fuzzy Search for '${albumTitle}' by '${artistName}'"
+            fi
         else
-            log "INFO :: No results found via Fuzzy Search for '${albumTitle}' by '${artistName}'"
+            log "WARNING :: Deezer Fuzzy Search API response missing expected fields"
+            return 1
         fi
     else
         log "WARNING :: Deezer Fuzzy Search failed for '${albumTitle}' by '${artistName}'"
