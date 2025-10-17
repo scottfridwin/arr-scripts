@@ -92,6 +92,7 @@ GetDeezerAlbumInfo () {
 
         # Validate JSON
         if albumJson=$(jq -e . <"${albumCacheFile}" 2>/dev/null); then
+            log "DEBUG :: albumJson: ${albumJson}"
             echo "${albumJson}"
             returnCode=0
         else
@@ -142,6 +143,7 @@ GetDeezerArtistAlbums() {
 
         # Validate JSON
         if artistJson=$(jq -e . <"${artistCacheFile}" 2>/dev/null); then
+            log "DEBUG :: artistJson: ${artistJson}"
             echo "${artistJson}"
             returnCode=0
         else
@@ -173,6 +175,7 @@ CallDeezerAPI() {
 
     while (( retries < maxRetries )); do
         # Capture HTTP code and output
+        log "DEBUG :: url: ${url}"
         response=$(curl -s -w "\n%{http_code}" \
             --connect-timeout 5 \
             --max-time "${AUDIO_DEEZER_API_TIMEOUT}" \
@@ -180,9 +183,10 @@ CallDeezerAPI() {
         
         httpCode=$(tail -n1 <<<"${response}")
         body=$(sed '$d' <<<"${response}")
-        echo "${body}"  # Return JSON body
 
         if [[ "${httpCode}" -eq 200 ]]; then
+            log "DEBUG :: body: ${body}"
+            echo "${body}"  # Return JSON body
             returnCode=0
             break
         else
