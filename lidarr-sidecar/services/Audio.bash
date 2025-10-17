@@ -157,22 +157,24 @@ CallDeezerAPI() {
     local maxRetries="${AUDIO_DEEZER_API_RETRIES}"
     local retries=0
     local httpCode
+    local body
     local response
 
     while (( retries < maxRetries )); do
         # Capture HTTP code and output
         response=$(curl -s -w "\n%{http_code}" \
-            --connect-timeout 5 --max-time ${AUDIO_DEEZER_API_TIMEOUT}
+            --connect-timeout 5 \
+            --max-time "${AUDIO_DEEZER_API_TIMEOUT}" \
             "${url}")
+        
         httpCode=$(tail -n1 <<<"${response}")
         body=$(sed '$d' <<<"${response}")
-		echo "${body}"  # return JSON body
+        echo "${body}"  # Return JSON body
 
         if [[ "${httpCode}" -eq 200 ]]; then
-            # Success, return the JSON
             return 0
         else
-            log "WARNING :: Deezer API returned HTTP ${httpCode} for URL ${url}, retrying ($((retries+1))/${maxRetries})..."
+            log "WARNING :: Deezer API returned HTTP ${httpCode:-<empty>} for URL ${url}, retrying ($((retries+1))/${maxRetries})..."
             ((retries++))
             sleep 1
         fi
