@@ -867,7 +867,6 @@ ArtistDeezerSearch() {
 
         # Pass filtered albums to the DownloadBestMatch function
         if (( resultsCount > 0 )); then
-            #echo "${filteredAlbums}" | DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}"
             DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" <<< "${filteredAlbums}"
 
         fi
@@ -938,7 +937,6 @@ FuzzyDeezerSearch() {
                 albumsJson=$(jq '[.data[].album] | unique_by(.id)' <<<"${deezerSearch}")
                 uniqueResults=$(jq 'length' <<<"${albumsJson}")
                 log "INFO :: ${uniqueResults} unique search results found for '${albumTitle}' by '${artistName}'"
-                #echo "${albumsJson}" | DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}"
                 DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" <<< "${albumsJson}"
             else
                 log "INFO :: No results found via Fuzzy Search for '${albumTitle}' by '${artistName}'"
