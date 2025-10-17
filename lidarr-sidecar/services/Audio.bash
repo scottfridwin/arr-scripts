@@ -322,6 +322,10 @@ DownloadProcess () {
 		mkdir -p "${AUDIO_DATA_PATH}"/failed
 	fi
 
+	if [ ! -d "${AUDIO_DATA_PATH}/notfound" ]; then
+		mkdir -p "${AUDIO_DATA_PATH}"/notfound
+	fi
+
 	if [ ! -d "${AUDIO_SHARED_LIDARR_PATH}" ]; then
 		log "ERROR :: Shared Lidarr Path not found: ${AUDIO_SHARED_LIDARR_PATH}"
 		setUnhealthy
