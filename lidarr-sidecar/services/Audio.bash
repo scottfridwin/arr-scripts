@@ -364,10 +364,10 @@ DownloadProcess() {
     local deezerAlbumId deezerAlbumTitle deezerAlbumTitleClean deezerAlbumTrackCount deezerArtistName deezerArtistNameClean downloadedReleaseDate downloadedReleaseYear
     deezerAlbumId=$(echo "${deezerAlbumJson}" | jq -r ".id")
     deezerAlbumTitle=$(echo "${deezerAlbumJson}" | jq -r ".title" | head -n1)
-    deezerAlbumTitleClean=normalize_string "$deezerAlbumTitle"
+    deezerAlbumTitleClean=$(normalize_string "$deezerAlbumTitle")
     deezerAlbumTrackCount="$(echo "${deezerAlbumJson}" | jq -r .nb_tracks)"
     deezerArtistName=$(jq -r '.artist.name' <<<"${deezerAlbumJson}")
-    deezerArtistNameClean=normalize_string "$deezerArtistName"
+    deezerArtistNameClean=$(normalize_string "$deezerArtistName")
     downloadedReleaseDate=$(jq -r .release_date <<<"${deezerAlbumJson}")
     downloadedReleaseYear="${downloadedReleaseDate:0:4}"
 
