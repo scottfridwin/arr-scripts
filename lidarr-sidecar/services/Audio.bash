@@ -12,8 +12,9 @@ source /app/functions.bash
 readonly VARIOUS_ARTIST_ID="89ad4ac3-39f7-470e-963a-56509c546377"
 readonly DEEMIX_CONFIG_PATH="/tmp/deemix_config.json"
 
-# Levenshtein Distance in Pure Bash
+# Levenshtein Distance calculation
 LevenshteinDistance() {
+  log "TRACE :: Entering LevenshteinDistance..."
     # $1 -> string 1
     # $2 -> string 2
     local s1="${1}"
@@ -24,50 +25,50 @@ LevenshteinDistance() {
     # If either string is empty, distance is the other's length
     if (( len_s1 == 0 )); then
         echo "${len_s2}"
-        return
-    fi
-    if (( len_s2 == 0 )); then
+    elif (( len_s2 == 0 )); then
         echo "${len_s1}"
-        return
-    fi
-
-    # Initialize 2 arrays for the current and previous row
-    local -a prev curr
-    for ((j=0; j<=len_s2; j++)); do
-        prev[j]=${j}
-    done
-
-    for ((i=1; i<=len_s1; i++)); do
-        curr[0]=${i}
-        local s1_char="${s1:i-1:1}"
-        for ((j=1; j<=len_s2; j++)); do
-            local s2_char="${s2:j-1:1}"
-            local cost=$(( s1_char == s2_char ? 0 : 1 ))
-
-            local del=$(( prev[j] + 1 ))
-            local ins=$(( curr[j-1] + 1 ))
-            local sub=$(( prev[j-1] + cost ))
-
-            local min=${del}
-            (( ins < min )) && min=${ins}
-            (( sub < min )) && min=${sub}
-
-            curr[j]=${min}
+    else
+        # Initialize 2 arrays for the current and previous row
+        local -a prev curr
+        for ((j=0; j<=len_s2; j++)); do
+            prev[j]=${j}
         done
-        prev=("${curr[@]}")
-    done
 
-    echo "${curr[len_s2]}"
+        for ((i=1; i<=len_s1; i++)); do
+            curr[0]=${i}
+            local s1_char="${s1:i-1:1}"
+            for ((j=1; j<=len_s2; j++)); do
+                local s2_char="${s2:j-1:1}"
+                local cost=$(( s1_char == s2_char ? 0 : 1 ))
+
+                local del=$(( prev[j] + 1 ))
+                local ins=$(( curr[j-1] + 1 ))
+                local sub=$(( prev[j-1] + cost ))
+
+                local min=${del}
+                (( ins < min )) && min=${ins}
+                (( sub < min )) && min=${sub}
+
+                curr[j]=${min}
+            done
+            prev=("${curr[@]}")
+        done
+
+        echo "${curr[len_s2]}"
+    fi
+    log "TRACE :: Exiting LevenshteinDistance..."
 }
 
 # Fetch Deezer album info with caching and retries
 GetDeezerAlbumInfo () {
+    log "TRACE :: Entering GetDeezerAlbumInfo..."
     # $1 -> Deezer Album ID
     local albumId="$1"
     local retries=0
     local maxRetries="${AUDIO_DEEZER_API_RETRIES}"
     local albumCacheFile="${AUDIO_WORK_PATH}/cache/album-${albumId}.json"
     local albumJson
+    local returnCode=1
 
     # Ensure cache directory exists
     mkdir -p "${AUDIO_WORK_PATH}/cache"
@@ -92,7 +93,7 @@ GetDeezerAlbumInfo () {
         # Validate JSON
         if albumJson=$(jq -e . <"${albumCacheFile}" 2>/dev/null); then
             echo "${albumJson}"
-            return 0
+            returnCode=0
         else
             log "WARNING :: Invalid JSON from Deezer for album ${albumId}, retrying... ($((retries+1))/${maxRetries})"
             rm -f "${albumCacheFile}"
@@ -101,12 +102,16 @@ GetDeezerAlbumInfo () {
         fi
     done
 
-    log "WARNING :: Failed to get valid album information after ${maxRetries} attempts for album ${albumId}"
-    return 1
+    if (( returnCode != 0 )); then
+        log "WARNING :: Failed to get valid album information after ${maxRetries} attempts for album ${albumId}"
+    fi
+    log "TRACE :: Exiting GetDeezerAlbumInfo..."
+    return ${returnCode}
 }
 
 # Fetch Deezer artist's albums with caching and retries
 GetDeezerArtistAlbums() {
+    log "TRACE :: Entering GetDeezerArtistAlbums..."
     # $1 -> Deezer Artist ID
     local artistId="$1"
     local retries=0
@@ -114,6 +119,7 @@ GetDeezerArtistAlbums() {
     local artistCacheFile="${AUDIO_WORK_PATH}/cache/artist-${artistId}-albums.json"
     local artistJson
     local httpCode
+    local returnCode=1
 
     mkdir -p "${AUDIO_WORK_PATH}/cache"
 
@@ -137,7 +143,7 @@ GetDeezerArtistAlbums() {
         # Validate JSON
         if artistJson=$(jq -e . <"${artistCacheFile}" 2>/dev/null); then
             echo "${artistJson}"
-            return 0
+            returnCode=0
         else
             log "WARNING :: Invalid JSON for artist ${artistId} albums, retrying... ($((retries+1))/${maxRetries})"
             rm -f "${artistCacheFile}"
@@ -146,12 +152,16 @@ GetDeezerArtistAlbums() {
         fi
     done
 
-    log "WARNING :: Failed to get valid album list after ${maxRetries} attempts for artist ${artistId}"
-    return 1
+    if (( returnCode != 0 )); then
+        log "WARNING :: Failed to get valid album list after ${maxRetries} attempts for artist ${artistId}"
+    fi
+    log "TRACE :: Exiting GetDeezerArtistAlbums..."
+    return ${returnCode}
 }
 
 # Generic Deezer API call with retries and error handling
 CallDeezerAPI() {
+  log "TRACE :: Entering CallDeezerAPI..."
     # $1 -> Deezer API URL
     local url="${1}"
     local maxRetries="${AUDIO_DEEZER_API_RETRIES}"
@@ -159,6 +169,7 @@ CallDeezerAPI() {
     local httpCode
     local body
     local response
+    local returnCode=1
 
     while (( retries < maxRetries )); do
         # Capture HTTP code and output
@@ -172,7 +183,8 @@ CallDeezerAPI() {
         echo "${body}"  # Return JSON body
 
         if [[ "${httpCode}" -eq 200 ]]; then
-            return 0
+            returnCode=0
+            break
         else
             log "WARNING :: Deezer API returned HTTP ${httpCode:-<empty>} for URL ${url}, retrying ($((retries+1))/${maxRetries})..."
             ((retries++))
@@ -180,12 +192,17 @@ CallDeezerAPI() {
         fi
     done
 
-    log "WARNING :: Failed to get a valid response from Deezer API after ${maxRetries} attempts for URL ${url}"
-    return 1
+    if (( returnCode != 0 )); then
+        log "WARNING :: Failed to get a valid response from Deezer API after ${maxRetries} attempts for URL ${url}"
+    fi
+
+    log "TRACE :: Exiting CallDeezerAPI..."
+    return ${returnCode}
 }
 
 # Add custom tags if they don't already exist
 AddLidarrTags () {
+  log "TRACE :: Entering AddLidarrTags..."
 	local response tagCheck httpCode
 
 	# Fetch existing tags once
@@ -208,6 +225,7 @@ AddLidarrTags () {
 			log "INFO :: Tag already exists: ${tag}"
 		fi
 	done
+    log "TRACE :: Exiting AddLidarrTags..."
 }
 
 # Add custom download client if it doesn't already exist
@@ -258,6 +276,7 @@ EOF
 
 # Clean up old notfound entries to allow retries
 NotFoundFolderCleaner () {
+  log "TRACE :: Entering NotFoundFolderCleaner..."
 	if [ -d "${AUDIO_DATA_PATH}/notfound" ]; then
 		# check for notfound entries older than AUDIO_RETRY_NOTFOUND_DAYS days
 		if find "${AUDIO_DATA_PATH}/notfound" -mindepth 1 -type f -mtime +${AUDIO_RETRY_NOTFOUND_DAYS} | read; then
@@ -266,10 +285,12 @@ NotFoundFolderCleaner () {
 			find "${AUDIO_DATA_PATH}/notfound" -mindepth 1 -type f -mtime +${AUDIO_RETRY_NOTFOUND_DAYS} -delete
 		fi
 	fi
+  log "TRACE :: Exiting NotFoundFolderCleaner..."
 }
 
 # Given a MusicBrainz release JSON object, return the title with disambiguation if present
 GetReleaseTitleDisambiguation() {
+  log "TRACE :: Entering GetReleaseTitleDisambiguation..."
 	# $1 -> JSON object for a MusicBrainz release
 	local release_json="$1"
 	local releaseTitle releaseDisambiguation
@@ -281,10 +302,12 @@ GetReleaseTitleDisambiguation() {
 		releaseDisambiguation=" ($releaseDisambiguation)"
 	fi
 	echo "${releaseTitle}${releaseDisambiguation}"
+  log "TRACE :: Exiting GetReleaseTitleDisambiguation..."
 }
 
 # Download album using deemix
 DownloadProcess () {
+  log "TRACE :: Entering DownloadProcess..."
 	# stdin - JSON data from Deezer API for the album
 	# $1 -> MusicBrainz album id
 	# $2 -> MusicBrainz release group id
@@ -444,11 +467,13 @@ DownloadProcess () {
 
 	# Clean up incomplete folder
 	rm -rf "${AUDIO_WORK_PATH}/staging"/*
+  log "TRACE :: Exiting DownloadProcess..."
 }
 
 # Add ReplayGain tags to audio files in the specified folder
 #TODO: replace with rsgain
 AddReplaygainTags () {
+  log "TRACE :: Entering AddReplaygainTags..."
     # $1 -> folder path containing audio files to be tagged
     log "INFO :: Adding ReplayGain Tags using r128gain"
 
@@ -457,20 +482,24 @@ AddReplaygainTags () {
     else
         rm -f /tmp/r128gain_errors.log
     fi
+  log "TRACE :: Exiting AddReplaygainTags..."
 }
 
 # Notify Lidarr to import the downloaded album
 NotifyLidarrForImport() {
+  log "TRACE :: Entering NotifyLidarrForImport..."
     # $1 -> folder path containing audio files for Lidarr to import
     local importPath="${1}"
 
     LidarrApiRequest "POST" "command" "{\"name\":\"DownloadedAlbumsScan\", \"path\":\"${importPath}\"}"
 
     log "INFO :: Sent notification to Lidarr to import downloaded album at path: ${importPath}"
+  log "TRACE :: Exiting NotifyLidarrForImport..."
 }
 
 # Set up Deemix client configuration
 DeemixClientSetup() {
+  log "TRACE :: Entering DeemixClientSetup..."
     log "INFO :: Setting up Deemix client"
 
     # 1️⃣ Determine ARL token
@@ -511,10 +540,12 @@ DeemixClientSetup() {
     fi
 
     log "INFO :: Deemix client setup complete. ARL token stored in global DEEMIX_ARL variable."
+  log "TRACE :: Exiting DeemixClientSetup..."
 }
 
 # Retrieve and process Lidarr wanted list (missing or cutoff)
 ProcessLidarrWantedList () {
+  log "TRACE :: Entering ProcessLidarrWantedList..."
     # $1 -> Type of list to process ("missing" or "cutoff")
     local listType=$1
     local searchOrder="releaseDate"
@@ -567,10 +598,12 @@ ProcessLidarrWantedList () {
     done
 
     log "INFO :: Completed processing ${listType} albums"
+  log "TRACE :: Exiting ProcessLidarrWantedList..."
 }
 
 # Given a Lidarr album ID, search for and attempt to download the album
 SearchProcess () {
+    log "TRACE :: Entering SearchProcess..."
     # $1 -> Deezer album ID
     local wantedAlbumId="$1"
     if [ -z "$wantedAlbumId" ]; then
@@ -639,10 +672,6 @@ SearchProcess () {
 	#  - Rank (0 for preferred editions, 1 for others)
 	#  - Title length (ascending if prefer special editions, descending if not)
 
-	# Debugging output
-	echo "$lidarrAlbumData" | jq -c '.releases[]' | while IFS= read -r release_json; do
-		log "DEBUG :: before sort :: $release_json"
-	done
 	jq_filter_special="[.releases[]
 	| .normalized_title = (.title | ascii_downcase)
 	| .title_length = (.title | length)
@@ -661,10 +690,6 @@ SearchProcess () {
 	else
 		sorted_releases=$(echo "${lidarrAlbumData}" | jq -c "${jq_filter_normal}")
 	fi
-	# Debugging output
-	echo "$sorted_releases" | jq -c '.[]' | while IFS= read -r release_json; do
-		log "DEBUG :: after sort :: $release_json"
-	done
 
 	# Determine lyric filter for first pass
 	local lyricFilter=()
@@ -717,8 +742,10 @@ SearchProcess () {
 			fi
 
 			# First search through the artist's Deezer albums to find a match on album title and track count
+            log "DEBUG :: lidarrArtistForeignArtistId: ${lidarrArtistForeignArtistId}"
 			if [ "${lidarrArtistForeignArtistId}" != "${VARIOUS_ARTIST_ID}" ]; then # Skip various artists
-				if [[ "$matchFound" == "false" ]]; then
+				if [ "$matchFound" == "false" ]; then
+		            log "DEBUG :: deezerArtistIds: ${deezerArtistIds[*]}"
 					for dId in "${!deezerArtistIds[@]}"; do
 						local deezerArtistId="${deezerArtistIds[$dId]}"
 						ArtistDeezerSearch matchFound "${lyricType}" "${deezerArtistId}" "${lidarrReleaseTitle}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}"
@@ -756,10 +783,12 @@ SearchProcess () {
 			fi
 		fi
 	fi
+  log "TRACE :: Exiting SearchProcess..."
 }
 
 # Search Deezer artist's albums for matches
 ArtistDeezerSearch() {
+  log "TRACE :: Entering ArtistDeezerSearch..."
 	# $1 -> name of variable to set to "true" if a download is successful
     # $2 -> Lyric Type ("Clean" or "Explicit")
     # $3 -> Deezer Artist ID
@@ -797,12 +826,13 @@ ArtistDeezerSearch() {
         fi
     else
         log "WARNING :: Failed to fetch album list for Deezer artist ID ${artistId}"
-        return 1
     fi
+  log "TRACE :: Exiting ArtistDeezerSearch..."
 }
 
 # Fuzzy search Deezer for albums matching title and artist
 FuzzyDeezerSearch() {
+  log "TRACE :: Entering FuzzyDeezerSearch..."
 	# $1 -> name of variable to set to "true" if a download is successful
     # $2 -> Lyric Type ("true" = explicit, "false" = clean)
 	# $3 -> lidarr artist name
@@ -864,15 +894,16 @@ FuzzyDeezerSearch() {
             fi
         else
             log "WARNING :: Deezer Fuzzy Search API response missing expected fields"
-            return 1
         fi
     else
         log "WARNING :: Deezer Fuzzy Search failed for '${albumTitle}' by '${artistName}'"
     fi
+  log "TRACE :: Exiting FuzzyDeezerSearch..."
 }
 
 # Given a JSON array of Deezer albums, find the best match based on title similarity and track count
 DownloadBestMatch() {
+  log "TRACE :: Entering DownloadBestMatch..."
 	# $1 -> name of variable to set to "true" if a download is successful
 	# $2 -> title of Lidarr release
     # $3 -> track count of Lidarr release
@@ -975,6 +1006,7 @@ DownloadBestMatch() {
     else
         log "INFO :: No suitable match found."
     fi
+  log "TRACE :: Exiting DownloadBestMatch..."
 }
 
 # Verify a FLAC file for corruption

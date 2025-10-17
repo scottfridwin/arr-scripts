@@ -96,7 +96,7 @@ def write_arl(new_token: str) -> bool:
 # ----------------------------
 def check_token(token: str) -> bool:
     """Validate the ARL token via Deezer API."""
-    log.info(f"Checking ARL token: {token}")
+    log.info(f"Checking ARL token")
     deezer = DeezerPlatformProvider()
     return deezer.login(token)
 

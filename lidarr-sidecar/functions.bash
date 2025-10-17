@@ -60,8 +60,6 @@ getLidarrApiKey() {
       setUnhealthy
       exit 1
     fi
-
-    [[ -n "$lidarrApiKey" ]] && log "DEBUG :: lidarrApiKey successfully set"
   fi
   log "TRACE :: Exiting getLidarrApiKey..."
 }
@@ -86,7 +84,6 @@ getLidarrUrl() {
       
     # Construct and return the full URL
     lidarrUrl="http://${LIDARR_HOST}:${lidarrPort}${lidarrUrlBase}"
-    log "DEBUG :: lidarrUrl: ${lidarrUrl}"
   fi
   log "TRACE :: Exiting getLidarrUrl..."
 }
@@ -128,8 +125,8 @@ LidarrApiRequest() {
         httpCode=$(tail -n1 <<<"${response}")
         body=$(sed '$d' <<<"${response}")
 
-        log "TRACE :: LidarrApiRequest response code ${httpCode}"
-        log "TRACE :: LidarrApiRequest response body ${body}"
+        log "DEBUG :: httpCode: ${httpCode}"
+        log "DEBUG :: body: ${body}"
         case "${httpCode}" in
             200|201|202|204)
                 # Successful request, return JSON body
@@ -139,19 +136,15 @@ LidarrApiRequest() {
             000)
                 # Connection failed — retry after waiting
                 log "WARNING :: Lidarr unreachable — entering recovery loop..."
+                local statusResponse statusBody statusHttpCode
                 while true; do
                     sleep 5
-                    log "DEBUG :: Attempting to reconnect to Lidarr..."
-                    # if curl -fs -H "X-Api-Key: ${lidarrApiKey}" "${lidarrUrl}/api/${lidarrApiVersion}/system/status" >/dev/null 2>&1; then
-                    #     log "INFO :: Lidarr connectivity restored, retrying previous request..."
-                    #     break
-                    # fi
                     statusResponse=$(curl -s -w "\n%{http_code}" -X "GET" \
                         -H "X-Api-Key: ${lidarrApiKey}" \
                         "${lidarrUrl}/api/${lidarrApiVersion}/system/status")
-                    httpCode=$(tail -n1 <<<"${statusResponse}")
-                    body=$(sed '$d' <<<"${statusResponse}")
-                    log "DEBUG :: Lidarr status request (${lidarrUrl}/api/${lidarrApiVersion}/system/status) returned ${httpCode} with body ${body}"
+                    statusHttpCode=$(tail -n1 <<<"${statusResponse}")
+                    statusBody=$(sed '$d' <<<"${statusResponse}")
+                    log "DEBUG :: Lidarr status request (${lidarrUrl}/api/${lidarrApiVersion}/system/status) returned ${statusHttpCode} with body ${statusBody}"
                     if [[ "${httpCode}" -eq "200" ]]; then
                         log "INFO :: Lidarr connectivity restored, retrying previous request..."
                         break
@@ -160,7 +153,7 @@ LidarrApiRequest() {
                 ;;
             *)
                 # Any other HTTP error is fatal
-                log "ERROR :: Lidarr API call failed (HTTP ${httpCode}) for ${path}"
+                log "ERROR :: Lidarr API call failed (HTTP ${httpCode}) for ${method} ${path}"
                 setUnhealthy
                 exit 1
                 ;;
@@ -216,7 +209,6 @@ verifyLidarrApiAccess() {
 
     # Fall back to v1 if v3 failed
     if [ -z "$apiTest" ]; then
-      log "DEBUG :: Testing api version v1..."
       lidarrApiVersion="v1"
       apiTest="$(curl -s "${lidarrUrl}/api/${lidarrApiVersion}/system/status?apikey=${lidarrApiKey}" | jq -r .instanceName)"
     fi

@@ -49,8 +49,6 @@ updateLidarrConfig() {
     local jsonData
     jsonData=$(<"${jsonFile}")  # load JSON into a variable
 
-    log "TRACE :: apiPath: ${apiPath}"
-    log "TRACE :: jsonData: ${jsonData}"
     LidarrApiRequest "PUT" "${apiPath}" "${jsonData}" >/dev/null
     log "INFO :: Successfully updated Lidarr ${settingName}"
 
