@@ -463,7 +463,7 @@ DownloadProcess () {
 	touch "${AUDIO_DATA_PATH}/downloaded/${deezerAlbumId}"
 
 	
-	if [ "$enableReplaygainTags" == "true" ]; then
+	if [ "${AUDIO_APPLY_REPLAYGAIN}" == "true" ]; then
 		AddReplaygainTags "${AUDIO_WORK_PATH}/staging"
 	else
 		log "INFO :: Replaygain tagging disabled"
