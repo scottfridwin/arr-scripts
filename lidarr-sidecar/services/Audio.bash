@@ -449,6 +449,7 @@ DownloadProcess() {
     # Remove now-empty subdirectories
     find "${AUDIO_WORK_PATH}/staging/" -type d -mindepth 1 -maxdepth 1 -exec rm -rf {} \; 2>/dev/null
 
+    # Add ReplayGain tags if enabled
     if [ "${AUDIO_APPLY_REPLAYGAIN}" == "true" ]; then
         AddReplaygainTags "${AUDIO_WORK_PATH}/staging"
     else
@@ -463,6 +464,7 @@ DownloadProcess() {
         [ -f "$file" ] || continue # extra safety in case glob expands to nothing
         metaflac --set-tag=MUSICBRAINZ_ALBUMID="$mbAlbumId" "$file"
         metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
+        metaflac --remove-tag=ALBUM "$file"
         metaflac --set-tag=ALBUM="$lidarrAlbumTitle" "$file"
         log "DEBUG :: File \"${file}\" tagged with MUSICBRAINZ_ALBUMID=${mbAlbumId} and MUSICBRAINZ_RELEASEGROUPID=${mbReleaseGroupId}"
     done
