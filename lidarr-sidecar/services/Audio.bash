@@ -869,11 +869,11 @@ FuzzyDeezerSearch() {
     log "INFO :: Fuzzy searching for '${albumTitle}' by '${artistName}' (${type} lyrics)..."
 
 	# Prepare search terms
-	local albumTitleSearch albumArtistNameSearch lidarrAlbumReleaseTitleSearchClean lidarrArtistNameSearchSanitized
-	lidarrAlbumReleaseTitleSearchClean="$(echo "$albumTitle" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g" | sed 's/^[.]*//' | sed  's/[.]*$//g' | sed  's/^ *//g' | sed 's/ *$//g')"
-	lidarrArtistNameSearchSanitized="$(echo "$artistName" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g")"
+	local albumTitleSearch albumArtistNameSearch lidarrAlbumReleaseTitleSearchClean lidarrArtistNameSearchClean
+	lidarrAlbumReleaseTitleSearchClean="$(clean_string "$albumTitle")"
+	lidarrArtistNameSearchClean="$(clean_string "$artistName")"
 	albumTitleSearch="$(jq -R -r @uri <<<"${lidarrAlbumReleaseTitleSearchClean}")"
-	albumArtistNameSearch="$(jq -R -r @uri <<<"${lidarrArtistNameSearchSanitized}")"
+	albumArtistNameSearch="$(jq -R -r @uri <<<"${lidarrArtistNameSearchClean}")"
 
     # Build search URL
     if [[ "${artistForeignArtistId}" == "${VARIOUS_ARTIST_ID}" ]]; then

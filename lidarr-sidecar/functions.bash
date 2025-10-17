@@ -231,3 +231,9 @@ verifyLidarrApiAccess() {
   log "INFO :: Lidarr API access verified (URL: ${lidarrUrl}, API Version: ${lidarrApiVersion})"
   log "TRACE :: Exiting verifyLidarrApiAccess..."
 }
+
+# Cleans a string by removing extra spaces and trimming leading/trailing spaces
+clean_string() {
+  # $1 -> the string to clean
+  echo "$1" | sed -E 's/[[:space:]]+/ /g; s/^ +| +$//g'
+}
