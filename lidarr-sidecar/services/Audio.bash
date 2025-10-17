@@ -627,9 +627,8 @@ SearchProcess () {
         return
     fi
 
-
     tmp_lidarrAlbumData="$(curl -s "$lidarrUrl/api/v1/album/$wantedAlbumId?apikey=${lidarrApiKey}")"
-    tmp_lidarrArtistData=$(echo "${lidarrAlbumData}" | jq -r ".artist")    
+    tmp_lidarrArtistData=$(echo "${tmp_lidarrAlbumData}" | jq -r ".artist")
     tmp_lidarrArtistName=$(echo "${tmp_lidarrArtistData}" | jq -r ".artistName")
     tmp_lidarrArtistNameSearchSanitized="$(echo "$tmp_lidarrArtistName" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g")"
     tmp_albumArtistNameSearch="$(jq -R -r @uri <<<"${tmp_lidarrArtistNameSearchSanitized}")"
@@ -702,7 +701,7 @@ SearchProcess () {
         log "WARNING :: Missing Deezer link for artist ${lidarrArtistName}, skipping..."
         return
     fi
-	local deezerArtistIds=($(echo "${deezerArtistUrl}" | grep -o '[[:digit:]]+' | sort -u))
+	local deezerArtistIds=($(echo "${deezerArtistUrl}" | grep -Eo '[[:digit:]]+' | sort -u))
 
 	# Sort releases based on preference for special editions
 	# Sort parameter explanations:
