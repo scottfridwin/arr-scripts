@@ -99,9 +99,6 @@ LidarrApiRequest() {
     local payload="${3:-}"
     local response body httpCode
 
-    log "DEBUG :: lidarrUrl: ${lidarrUrl}"
-    log "DEBUG :: lidarrApiKey: ${lidarrApiKey}"
-    log "DEBUG :: lidarrApiVersion: ${lidarrApiVersion}"
     if [[ -z "$lidarrUrl" || -z "$lidarrApiKey" || -z "$lidarrApiVersion" ]]; then
         log "INFO :: Need to retrieve lidarr connection details in order to perform API requests"
         verifyLidarrApiAccess
