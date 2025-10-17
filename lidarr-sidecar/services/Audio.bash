@@ -19,6 +19,7 @@ LevenshteinDistance() {
     # $2 -> string 2
     local s1="${1}"
     local s2="${2}"
+    log "DEBUG :: Calculating Levenshtein distance between '${s1}' and '${s2}'"
     local len_s1=${#s1}
     local len_s2=${#s2}
 
