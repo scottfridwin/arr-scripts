@@ -1,7 +1,7 @@
 declare -A LOG_PRIORITY=( ["TRACE"]=0 ["DEBUG"]=1 ["INFO"]=2 ["WARNING"]=3 ["ERROR"]=4 )
-lidarrApiKey=""
-lidarrUrl=""
-lidarrApiVersion=""
+: "${lidarrUrl:=}"
+: "${lidarrApiKey:=}"
+: "${lidarrApiVersion:=}"
 
 # Logs messages with levels and respects LOG_LEVEL setting
 log () {
