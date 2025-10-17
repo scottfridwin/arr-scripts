@@ -8,44 +8,46 @@ from requests import Session
 # ----------------------------
 # Configuration
 # ----------------------------
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/110.0'
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/110.0"
+)
 
 # Initialize logging
 init(autoreset=True)
 version = "2.0"
 logging.basicConfig(
-    format=f'ARLChecker.py :: v{version} :: %(levelname)s :: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
+    format=f"ARLChecker.py :: v{version} :: %(levelname)s :: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO,
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
-log = logging.getLogger('ARLChecker')
+log = logging.getLogger("ARLChecker")
 
 
 # ----------------------------
 # Deezer Login Checker
 # ----------------------------
 class DeezerPlatformProvider:
-    BASE_URL = 'http://www.deezer.com'
-    API_PATH = '/ajax/gw-light.php'
+    BASE_URL = "http://www.deezer.com"
+    API_PATH = "/ajax/gw-light.php"
     SESSION_DATA = {
-        'api_token': 'null',
-        'api_version': '1.0',
-        'input': '3',
-        'method': 'deezer.getUserData'
+        "api_token": "null",
+        "api_version": "1.0",
+        "input": "3",
+        "method": "deezer.getUserData",
     }
 
     def __init__(self):
         self.session = Session()
-        self.session.headers.update({'User-Agent': USER_AGENT})
+        self.session.headers.update({"User-Agent": USER_AGENT})
 
     def login(self, token: str) -> bool:
         """Check if ARL token is valid by performing a login attempt."""
         try:
             res = self.session.post(
                 self.BASE_URL + self.API_PATH,
-                cookies={'arl': token.strip('"')},
-                data=self.SESSION_DATA
+                cookies={"arl": token.strip('"')},
+                data=self.SESSION_DATA,
             )
             res.raise_for_status()
             data = res.json()
@@ -53,11 +55,13 @@ class DeezerPlatformProvider:
             log.error(Fore.RED + f"Error connecting to Deezer: {e}" + Fore.RESET)
             return False
 
-        if 'error' in data and data['error']:
-            log.error(Fore.RED + f"Deezer API returned error: {data['error']}" + Fore.RESET)
+        if "error" in data and data["error"]:
+            log.error(
+                Fore.RED + f"Deezer API returned error: {data['error']}" + Fore.RESET
+            )
             return False
 
-        user_id = data.get('results', {}).get('USER', {}).get('USER_ID', 0)
+        user_id = data.get("results", {}).get("USER", {}).get("USER_ID", 0)
         if user_id == 0:
             log.error(Fore.RED + "ARL token invalid or expired" + Fore.RESET)
             return False
@@ -75,7 +79,7 @@ def read_arl() -> str:
     if not arl_file or not os.path.isfile(arl_file):
         log.error("ARL file not found. Set AUDIO_DEEMIX_ARL_FILE correctly.")
         return None
-    with open(arl_file, 'r', encoding='utf-8') as f:
+    with open(arl_file, "r", encoding="utf-8") as f:
         return f.read().strip().strip('"')
 
 
@@ -85,7 +89,7 @@ def write_arl(new_token: str) -> bool:
     if not arl_file:
         log.error("AUDIO_DEEMIX_ARL_FILE environment variable not set")
         return False
-    with open(arl_file, 'w', encoding='utf-8') as f:
+    with open(arl_file, "w", encoding="utf-8") as f:
         f.write(new_token.strip('"') + "\n")
     log.info(f"New ARL token written to {arl_file}")
     return True

@@ -32,7 +32,7 @@ log "DEBUG :: AUTOCONFIG_TRACK_NAMING_JSON=${AUTOCONFIG_TRACK_NAMING_JSON}"
 ### Main ###
 
 updateLidarrConfig() {
-  log "TRACE :: Entering updateLidarrConfig..."
+    log "TRACE :: Entering updateLidarrConfig..."
     local jsonFile="${1}"
     local apiPath="${2}"
     local settingName="${3}"
@@ -47,31 +47,31 @@ updateLidarrConfig() {
 
     # Read the JSON file and send it via LidarrApiRequest
     local jsonData
-    jsonData=$(<"${jsonFile}")  # load JSON into a variable
+    jsonData=$(<"${jsonFile}") # load JSON into a variable
 
     LidarrApiRequest "PUT" "${apiPath}" "${jsonData}" >/dev/null
     log "INFO :: Successfully updated Lidarr ${settingName}"
 
-  log "TRACE :: Exiting updateLidarrConfig..."
+    log "TRACE :: Exiting updateLidarrConfig..."
 }
 
 # Conditionally update each setting
-[ "${AUTOCONFIG_MEDIA_MANAGEMENT}" == "true" ] && \
+[ "${AUTOCONFIG_MEDIA_MANAGEMENT}" == "true" ] &&
     updateLidarrConfig "${AUTOCONFIG_MEDIA_MANAGEMENT_JSON}" "config/mediamanagement" "Media Management"
 
-[ "${AUTOCONFIG_METADATA_CONSUMER}" == "true" ] && \
+[ "${AUTOCONFIG_METADATA_CONSUMER}" == "true" ] &&
     updateLidarrConfig "${AUTOCONFIG_METADATA_CONSUMER_JSON}" "metadata/1" "Metadata Consumer"
 
-[ "${AUTOCONFIG_METADATA_PROVIDER}" == "true" ] && \
+[ "${AUTOCONFIG_METADATA_PROVIDER}" == "true" ] &&
     updateLidarrConfig "${AUTOCONFIG_METADATA_PROVIDER_JSON}" "config/metadataProvider" "Metadata Provider"
 
-[ "${AUTOCONFIG_LIDARR_UI}" == "true" ] && \
+[ "${AUTOCONFIG_LIDARR_UI}" == "true" ] &&
     updateLidarrConfig "${AUTOCONFIG_LIDARR_UI_JSON}" "config/ui" "UI"
 
-[ "${AUTOCONFIG_METADATA_PROFILE}" == "true" ] && \
+[ "${AUTOCONFIG_METADATA_PROFILE}" == "true" ] &&
     updateLidarrConfig "${AUTOCONFIG_METADATA_PROFILE_JSON}" "metadataprofile/1" "Metadata Profile"
 
-[ "${AUTOCONFIG_TRACK_NAMING}" == "true" ] && \
+[ "${AUTOCONFIG_TRACK_NAMING}" == "true" ] &&
     updateLidarrConfig "${AUTOCONFIG_TRACK_NAMING_JSON}" "config/naming" "Track Naming"
 
 log "INFO :: Auto Configuration Complete"

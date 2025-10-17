@@ -45,4 +45,3 @@ jobs:
             -t ${{ env.imageRepository }}:latest \
             -t ${{ env.imageRepository }}:${{ github.sha }} \
             -f Dockerfile .
-
