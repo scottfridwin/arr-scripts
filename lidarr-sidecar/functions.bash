@@ -232,19 +232,24 @@ verifyLidarrApiAccess() {
   log "TRACE :: Exiting verifyLidarrApiAccess..."
 }
 
-# Cleans a string by removing extra spaces and trimming leading/trailing spaces
-clean_string() {
-  # $1 -> the string to clean
-  echo "$1" | sed -E 's/[[:space:]]+/ /g; s/^ +| +$//g'
-}
-
 # Normalizes a string by replacing smart quotes and normalizing spaces
 normalize_string() {
   # $1 -> the string to normalize
-  # Replace smart quotes, normalize spaces
+
+  # Converts the right single quotation mark (’, Unicode U+2019) → straight apostrophe (', ASCII U+0027).
+  # Converts the left single quotation mark (‘, Unicode U+2018) → ' (ASCII apostrophe).
+  # Converts left double quotation mark (“, Unicode U+201C) → plain double quote (", ASCII U+0022).
+  # Converts right double quotation mark (”, Unicode U+201D) → ".
+  # Converts any sequence of whitespace characters (tabs, newlines, multiple spaces) into a single space.
+  # Converts non-breaking spaces (U+00A0) to regular spaces (U+0020).
+  # Converts en dashes (–, Unicode U+2013) to hyphens (-, ASCII U+002D).
+  # Removes leading and trailing spaces.
   echo "$1" \
-    | sed -e "s/’/'/g" -e "s/‘/'/g" \
+    | sed -e "s/’/'/g" \
+          -e "s/‘/'/g" \
           -e 's/“/"/g' -e 's/”/"/g' \
+          -e 's/–/-/g' \
+          -e 's/\xA0/ /g' \
           -e 's/[[:space:]]\+/ /g' \
           -e 's/^ *//; s/ *$//'
 }
