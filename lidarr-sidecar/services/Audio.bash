@@ -1022,6 +1022,7 @@ DownloadBestMatch() {
             log "INFO :: Potential match found :: ${deezerAlbumTitle} (${downloadedReleaseYear}) :: Distance=${diff} TrackDiff=${trackDiff}"
         else
 			log "INFO :: Album does not meet matching threshold, skipping..."
+            continue
 		fi
 
         # Perfect match
