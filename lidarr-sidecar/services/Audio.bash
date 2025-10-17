@@ -392,8 +392,8 @@ DownloadProcess () {
         local deemixQuality=flac
 		log "INFO :: Download attempt #${downloadTry} for album \"${deezerAlbumTitle}\""
 		DEEMIX_ARL="${DEEMIX_ARL}" \
+        DEEMIX_CONFIG="${DEEMIX_CONFIG_PATH}" \
 		deemix \
-			-c ${DEEMIX_CONFIG_PATH} \
 			-b "${deemixQuality}" \
 			-p "${AUDIO_WORK_PATH}/staging" \
 			"https://www.deezer.com/album/${deezerAlbumId}" 2>&1
