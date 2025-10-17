@@ -964,6 +964,12 @@ DownloadBestMatch() {
     albums=$(cat)  # read JSON array from stdin
     albumsCount=$(jq 'length' <<<"${albums}")
 
+    log "DEBUG :: matchVarName: ${matchVarName}"
+    log "DEBUG :: releaseTitle: ${releaseTitle}"
+    log "DEBUG :: trackCount: ${trackCount}"
+    log "DEBUG :: mbAlbumId: ${mbAlbumId}"
+    log "DEBUG :: mbReleaseGroupId: ${mbReleaseGroupId}"
+
     bestMatchID=""
     bestMatchTitle=""
     bestMatchYear=""
