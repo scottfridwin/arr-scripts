@@ -3,6 +3,7 @@ FROM alpine:latest
 
 # Install system dependencies
 RUN apk add --no-cache \
+    beets \
     tidyhtml \
     musl-locales \
     musl-locales-lang \
