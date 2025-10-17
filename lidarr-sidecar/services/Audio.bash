@@ -394,8 +394,7 @@ DownloadProcess () {
 		log "INFO :: Download attempt #${downloadTry} for album \"${deezerAlbumTitle}\""
         {
             cd ${DEEMIX_CONFIG_DIR}
-            DEEMIX_ARL="${DEEMIX_ARL}" \
-            deemix \
+            echo "${DEEMIX_ARL}" | deemix \
                 -b "${deemixQuality}" \
                 -p "${AUDIO_WORK_PATH}/staging" \
                 "https://www.deezer.com/album/${deezerAlbumId}" 2>&1
