@@ -446,6 +446,12 @@ DownloadProcess () {
 	# Remove now-empty subdirectories
 	find "${AUDIO_WORK_PATH}/staging/" -type d -mindepth 1 -maxdepth 1 -exec rm -rf {} \; 2>/dev/null
 
+	if [ "${AUDIO_APPLY_REPLAYGAIN}" == "true" ]; then
+		AddReplaygainTags "${AUDIO_WORK_PATH}/staging"
+	else
+		log "INFO :: Replaygain tagging disabled"
+	fi
+
 	# Add the musicbrainz album id to the files
     shopt -s nullglob
     # TODO: Tag more than just FLAC files if needed
@@ -462,15 +468,7 @@ DownloadProcess () {
 	log "INFO :: Album \"${deezerAlbumTitle}\" successfully downloaded"
 	touch "${AUDIO_DATA_PATH}/downloaded/${deezerAlbumId}"
 
-	
-	if [ "${AUDIO_APPLY_REPLAYGAIN}" == "true" ]; then
-		AddReplaygainTags "${AUDIO_WORK_PATH}/staging"
-	else
-		log "INFO :: Replaygain tagging disabled"
-	fi
-	
 	local downloadedAlbumFolder="${deezerArtistNameClean}-${deezerAlbumTitleClean:0:100} (${downloadedReleaseYear})"
-
 	mkdir -p "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
 	find "${AUDIO_WORK_PATH}/staging" -type f -regex ".*/.*\.\(flac\|m4a\|mp3\|flac\|opus\)" -exec mv {} "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"/ \;
 
