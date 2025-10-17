@@ -870,8 +870,8 @@ FuzzyDeezerSearch() {
 
 	# Prepare search terms
 	local albumTitleSearch albumArtistNameSearch lidarrAlbumReleaseTitleSearchClean lidarrArtistNameSearchClean
-	lidarrAlbumReleaseTitleSearchClean="$(clean_string "$albumTitle")"
-	lidarrArtistNameSearchClean="$(clean_string "$artistName")"
+	lidarrAlbumReleaseTitleSearchClean="$(normalize_string "$albumTitle")"
+	lidarrArtistNameSearchClean="$(normalize_string "$artistName")"
 	albumTitleSearch="$(jq -R -r @uri <<<"${lidarrAlbumReleaseTitleSearchClean}")"
 	albumArtistNameSearch="$(jq -R -r @uri <<<"${lidarrArtistNameSearchClean}")"
 

@@ -237,3 +237,14 @@ clean_string() {
   # $1 -> the string to clean
   echo "$1" | sed -E 's/[[:space:]]+/ /g; s/^ +| +$//g'
 }
+
+# Normalizes a string by replacing smart quotes and normalizing spaces
+normalize_string() {
+  # $1 -> the string to normalize
+  # Replace smart quotes, normalize spaces
+  echo "$1" \
+    | sed -e "s/’/'/g" -e "s/‘/'/g" \
+          -e 's/“/"/g' -e 's/”/"/g' \
+          -e 's/[[:space:]]\+/ /g' \
+          -e 's/^ *//; s/ *$//'
+}
