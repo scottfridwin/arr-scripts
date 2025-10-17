@@ -451,9 +451,10 @@ DownloadProcess () {
 		shopt -s nullglob
 		# TODO: Tag more than just FLAC files if needed
 		for file in "${AUDIO_WORK_PATH}"/staging/*.{flac}; do
+	        log "DEBUG :: file $file"
 			[ -f "$file" ] || continue  # extra safety in case glob expands to nothing
 			metaflac --set-tag=MUSICBRAINZ_ALBUMID="$mbAlbumId" "$file"
-			metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"		
+			metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
 		done
 		shopt -u nullglob
 	}
@@ -869,7 +870,9 @@ ArtistDeezerSearch() {
 
         # Pass filtered albums to the DownloadBestMatch function
         if (( resultsCount > 0 )); then
-            echo "${filteredAlbums}" | DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}"
+            #echo "${filteredAlbums}" | DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}"
+            DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" <<< "${filteredAlbums}"
+
         fi
     else
         log "WARNING :: Failed to fetch album list for Deezer artist ID ${artistId}"
@@ -938,7 +941,8 @@ FuzzyDeezerSearch() {
                 albumsJson=$(jq '[.data[].album] | unique_by(.id)' <<<"${deezerSearch}")
                 uniqueResults=$(jq 'length' <<<"${albumsJson}")
                 log "INFO :: ${uniqueResults} unique search results found for '${albumTitle}' by '${artistName}'"
-                echo "${albumsJson}" | DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}"
+                #echo "${albumsJson}" | DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}"
+                DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" <<< "${albumsJson}"
             else
                 log "INFO :: No results found via Fuzzy Search for '${albumTitle}' by '${artistName}'"
             fi
