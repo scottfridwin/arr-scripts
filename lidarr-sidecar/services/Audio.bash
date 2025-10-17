@@ -840,7 +840,7 @@ FuzzyDeezerSearch() {
     # Call Deezer API
     if deezerSearch=$(CallDeezerAPI "${url}"); then
         log "TRACE :: deezerSearch: ${deezerSearch}"
-        if jq -e '.data and .total' <<<"${deezerSearch}" >/dev/null 2>&1; then
+        if jq -e 'has("data") and has("total")' <<<"${deezerSearch}" >/dev/null 2>&1; then
             resultsCount=$(jq '.total' <<<"${deezerSearch}")
             log "DEBUG :: ${resultsCount} search results found for '${albumTitle}' by '${artistName}'"
             if [[ "$resultsCount" -gt 0 ]]; then
