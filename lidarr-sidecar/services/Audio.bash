@@ -161,9 +161,12 @@ CallDeezerAPI() {
 
     while (( retries < maxRetries )); do
         # Capture HTTP code and output
-        response=$(curl -sS -w "\n%{http_code}" --connect-timeout 5 --max-time ${AUDIO_DEEZER_API_TIMEOUT} "${url}")
-		httpCode=$(tail -n1 <<< "$response")
-		echo "${response}"  # return JSON body
+        response=$(curl -s -w "\n%{http_code}" \
+            --connect-timeout 5 --max-time ${AUDIO_DEEZER_API_TIMEOUT}
+            "${url}")
+        httpCode=$(tail -n1 <<<"${response}")
+        body=$(sed '$d' <<<"${response}")
+		echo "${body}"  # return JSON body
 
         if [[ "${httpCode}" -eq 200 ]]; then
             # Success, return the JSON
