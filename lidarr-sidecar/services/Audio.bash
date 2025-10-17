@@ -389,6 +389,7 @@ DownloadProcess () {
 			return 1
 		fi
 
+        local deemixQuality=flac
 		log "INFO :: Download attempt #${downloadTry} for album \"${deezerAlbumTitle}\""
 		DEEMIX_ARL="${DEEMIX_ARL}" \
 		deemix \
