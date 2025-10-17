@@ -454,6 +454,7 @@ DownloadProcess () {
         [ -f "$file" ] || continue  # extra safety in case glob expands to nothing
         metaflac --set-tag=MUSICBRAINZ_ALBUMID="$mbAlbumId" "$file"
         metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
+        log "DEBUG :: File \"${file}\" tagged with MUSICBRAINZ_ALBUMID=${mbAlbumId} and MUSICBRAINZ_RELEASEGROUPID=${mbReleaseGroupId}"
     done
     shopt -u nullglob
 
