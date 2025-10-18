@@ -377,11 +377,11 @@ DownloadProcess() {
     # Check if previously downloaded or failed download
     if [ -f "${AUDIO_DATA_PATH}/downloaded/${deezerAlbumId}" ]; then
         log "WARNING :: Album \"${deezerAlbumTitle}\" previously downloaded (${deezerAlbumId})...Skipping..."
-        return 1
+        return
     fi
     if [ -f "${AUDIO_DATA_PATH}/failed/${deezerAlbumId}" ]; then
         log "WARNING :: Album \"${deezerAlbumTitle}\" previously failed to download ($deezerAlbumId)...Skipping..."
-        return 1
+        return
     fi
 
     local downloadTry=0
@@ -391,7 +391,7 @@ DownloadProcess() {
         # Stop trying after too many attempts
         if ((downloadTry >= AUDIO_DOWNLOAD_ATTEMPT_THRESHOLD)); then
             log "WARNING :: Album \"${deezerAlbumTitle}\" failed to download after ${downloadTry} attempts...Skipping..."
-            return 1
+            return
         fi
 
         local deemixQuality=flac
