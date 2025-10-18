@@ -522,7 +522,7 @@ AddBeetsTags() {
     touch ${BEETS_DIR}/beets-library.blb
 
     # Process with Beets
-    beet -c "${BEETS_CONFIG_PATH}" -l ${BEETS_DIR}/beets-library.blb -d "$1" import -qC "$1"
+    XDG_CONFIG_HOME=${BEETS_DIR} && beet -c "${BEETS_CONFIG_PATH}" -l ${BEETS_DIR}/beets-library.blb -d "$1" import -qC "$1"
 
     if [ $(find "${importPath}" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "${BEETS_DIR}/beets.timer" | wc -l) -gt 0 ]; then
         log "INFO :: Successfully added Beets tags"
