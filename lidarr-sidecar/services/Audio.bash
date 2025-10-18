@@ -548,7 +548,7 @@ AddBeetsTags() {
         beet -c "${BEETS_DIR}/beets.yaml" \
             -l "${BEETS_DIR}/beets-library.blb" \
             -d "$1" import -qC "$1"
-    )
+
     returnCode=$? # <- captures exit code of subshell
     if [ $returnCode -ne 0 ]; then
         log "WARNING :: Beets returned error code ${returnCode}"
@@ -558,6 +558,7 @@ AddBeetsTags() {
         log "WARNING :: Unable to match using beets to a musicbrainz release"
         returnCode=1
     fi
+	)
 
     log "TRACE :: Exiting AddBeetsTags..."
     return ${returnCode}
