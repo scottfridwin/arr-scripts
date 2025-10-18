@@ -9,8 +9,10 @@ source /app/functions.bash
 
 #### Constants
 readonly VARIOUS_ARTIST_ID="89ad4ac3-39f7-470e-963a-56509c546377"
-readonly DEEMIX_CONFIG_DIR="/tmp/deemix"
-readonly DEEMIX_CONFIG_PATH="${DEEMIX_CONFIG_DIR}/config.json"
+readonly DEEMIX_DIR="/tmp/deemix"
+readonly DEEMIX_CONFIG_PATH="${DEEMIX_DIR}/config.json"
+readonly BEETS_DIR="/tmp/beets"
+readonly BEETS_CONFIG_PATH="${BEETS_DIR}/config.json"
 
 # Levenshtein Distance calculation
 LevenshteinDistance() {
@@ -395,7 +397,7 @@ DownloadProcess() {
         local deemixQuality=flac
         log "INFO :: Download attempt #${downloadTry} for album \"${deezerAlbumTitle}\""
         {
-            cd ${DEEMIX_CONFIG_DIR}
+            cd ${DEEMIX_DIR}
             echo "${DEEMIX_ARL}" | deemix \
                 -b "${deemixQuality}" \
                 -p "${AUDIO_WORK_PATH}/staging" \
@@ -490,13 +492,38 @@ AddReplaygainTags() {
     log "TRACE :: Entering AddReplaygainTags..."
     # $1 -> folder path containing audio files to be tagged
     log "INFO :: Adding ReplayGain Tags using r128gain"
+    local importPath="${1}"
 
-    if ! r128gain -r -c 1 -a "$1" >/dev/null 2>/tmp/r128gain_errors.log; then
+    if ! r128gain -r -c 1 -a "${importPath}" >/dev/null 2>/tmp/r128gain_errors.log; then
         log "WARNING :: r128gain encountered errors while processing $1. See /tmp/r128gain_errors.log for details."
     else
         rm -f /tmp/r128gain_errors.log
     fi
     log "TRACE :: Exiting AddReplaygainTags..."
+}
+
+AddBeetsTags() {
+    log "TRACE :: Entering AddBeetsTags..."
+    # $1 -> folder path containing audio files to be tagged
+    local importPath="${1}"
+    log "INFO :: Adding Beets tags"
+
+    # Setup
+    rm -f ${BEETS_DIR}/beets-library.blb
+    rm -f ${BEETS_DIR}/beets.log
+    rm -f ${BEETS_DIR}/beets.timer
+    touch ${BEETS_DIR}/beets-library.blb
+
+    # Process with Beets
+    beet -c "${DEEMIX_CONFIG_PATH}" -l ${BEETS_DIR}/beets-library.blb -d "$1" import -qC "$1"
+
+    if [ $(find "${importPath}" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "${BEETS_DIR}/beets.timer" | wc -l) -gt 0 ]; then
+        log "INFO :: Successfully added Beets tags"
+    else
+        log "WARNING :: Unable to match using beets to a musicbrainz release"
+    fi
+
+    log "TRACE :: Exiting AddBeetsTags..."
 }
 
 # Notify Lidarr to import the downloaded album
@@ -512,11 +539,11 @@ NotifyLidarrForImport() {
 }
 
 # Set up Deemix client configuration
-DeemixClientSetup() {
-    log "TRACE :: Entering DeemixClientSetup..."
+SetupDeemix() {
+    log "TRACE :: Entering SetupDeemix..."
     log "INFO :: Setting up Deemix client"
 
-    # 1️⃣ Determine ARL token
+    # Determine ARL token
     if [[ -n "${AUDIO_DEEMIX_ARL_FILE}" && -f "${AUDIO_DEEMIX_ARL_FILE}" ]]; then
         DEEMIX_ARL="$(tr -d '\r\n' <"${AUDIO_DEEMIX_ARL_FILE}")"
     else
@@ -525,37 +552,77 @@ DeemixClientSetup() {
         exit 1
     fi
 
-    # 2️⃣ Copy default config to /tmp
-    DEFAULT_CONFIG="/app/config/deemix_config.json"
-
-    if [[ ! -f "${DEFAULT_CONFIG}" ]]; then
-        log "ERROR :: Default Deemix config not found at ${DEFAULT_CONFIG}"
-        return 1
+    # Copy default config to /tmp
+    local defaultConfigFile="/app/config/deemix_config.json"
+    if [[ ! -f "${defaultConfigFile}" ]]; then
+        log "ERROR :: Default Deemix config not found at ${defaultConfigFile}"
+        setUnhealthy
+        exit 1
     fi
 
-    mkdir -p "${DEEMIX_CONFIG_DIR}"
-    cp -f "${DEFAULT_CONFIG}" "${DEEMIX_CONFIG_PATH}"
+    mkdir -p "${DEEMIX_DIR}"
+    cp -f "${defaultConfigFile}" "${DEEMIX_CONFIG_PATH}"
 
-    # 3️⃣ Merge custom config if provided
+    # Merge custom config if provided
     if [[ -n "${AUDIO_DEEMIX_CUSTOM_CONFIG}" ]]; then
+        local customConfigContent configContent
         # AUDIO_DEEMIX_CUSTOM_CONFIG can be a path to JSON or raw JSON string
         if [[ -f "${AUDIO_DEEMIX_CUSTOM_CONFIG}" ]]; then
-            CUSTOM_CONFIG_CONTENT="$(<"${AUDIO_DEEMIX_CUSTOM_CONFIG}")"
+            customConfigContent="$(<"${AUDIO_DEEMIX_CUSTOM_CONFIG}")"
         else
-            CUSTOM_CONFIG_CONTENT="${AUDIO_DEEMIX_CUSTOM_CONFIG}"
+            customConfigContent="${AUDIO_DEEMIX_CUSTOM_CONFIG}"
         fi
 
         # Merge default and custom config; custom overrides defaults
-        TMP_CONFIG_CONTENT=$(jq -s '.[0] * .[1]' \
+        configContent=$(jq -s '.[0] * .[1]' \
             <(cat "${DEEMIX_CONFIG_PATH}") \
-            <(echo "${CUSTOM_CONFIG_CONTENT}"))
+            <(echo "${customConfigContent}"))
 
-        echo "${TMP_CONFIG_CONTENT}" >"${DEEMIX_CONFIG_PATH}"
-        log "INFO :: Custom Deemix config merged into /tmp/deemix_config.json"
+        echo "${configContent}" >"${DEEMIX_CONFIG_PATH}"
+        log "INFO :: Custom Deemix config merged into ${DEEMIX_CONFIG_PATH}"
     fi
 
     log "INFO :: Deemix client setup complete. ARL token stored in global DEEMIX_ARL variable."
-    log "TRACE :: Exiting DeemixClientSetup..."
+    log "TRACE :: Exiting SetupDeemix..."
+}
+
+# Set up Deemix client configuration
+SetupBeets() {
+    log "TRACE :: Entering SetupBeets..."
+    log "INFO :: Setting up Beets configuration"
+
+    # Copy default config to /tmp
+    local defaultConfigFile="/app/config/deemix_config.json"
+    if [[ ! -f "${defaultConfigFile}" ]]; then
+        log "ERROR :: Default Deemix config not found at ${defaultConfigFile}"
+        setUnhealthy
+        exit 1
+    fi
+
+    mkdir -p "${BEETS_DIR}"
+    cp -f "${defaultConfigFile}" "${BEETS_CONFIG_PATH}"
+
+    # Merge custom YAML config if provided
+    if [[ -n "${AUDIO_BEETS_CUSTOM_CONFIG}" ]]; then
+        local customConfigContent configContent
+        # AUDIO_BEETS_CUSTOM_CONFIG can be a path to YAML or raw YAML string
+        if [[ -f "${AUDIO_BEETS_CUSTOM_CONFIG}" ]]; then
+            customConfigContent="$(<"${AUDIO_BEETS_CUSTOM_CONFIG}")"
+        else
+            customConfigContent="${AUDIO_BEETS_CUSTOM_CONFIG}"
+        fi
+
+        # Merge default and custom config; custom overrides defaults
+        configContent=$(yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
+            "${BEETS_CONFIG_PATH}" \
+            <(echo "${customConfigContent}"))
+
+        echo "${configContent}" >"${BEETS_CONFIG_PATH}"
+        log "INFO :: Custom Beets config merged into ${BEETS_CONFIG_PATH}"
+    fi
+
+    log "INFO :: Beets configuration complete"
+    log "TRACE :: Exiting SetupBeets..."
 }
 
 # Retrieve and process Lidarr wanted list (missing or cutoff)
@@ -638,38 +705,38 @@ SearchProcess() {
         return
     fi
 
-    tmp_lidarrAlbumData="$(curl -s "$lidarrUrl/api/v1/album/$wantedAlbumId?apikey=${lidarrApiKey}")"
-    tmp_lidarrArtistData=$(echo "${tmp_lidarrAlbumData}" | jq -r ".artist")
-    tmp_lidarrArtistName=$(echo "${tmp_lidarrArtistData}" | jq -r ".artistName")
-    tmp_lidarrArtistNameSearchSanitized="$(echo "$tmp_lidarrArtistName" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g")"
-    tmp_albumArtistNameSearch="$(jq -R -r @uri <<<"${tmp_lidarrArtistNameSearchSanitized}")"
-    log "DEBUG :: tmp_albumArtistNameSearch: ${tmp_albumArtistNameSearch}"
+    # tmp_lidarrAlbumData="$(curl -s "$lidarrUrl/api/v1/album/$wantedAlbumId?apikey=${lidarrApiKey}")"
+    # tmp_lidarrArtistData=$(echo "${tmp_lidarrAlbumData}" | jq -r ".artist")
+    # tmp_lidarrArtistName=$(echo "${tmp_lidarrArtistData}" | jq -r ".artistName")
+    # tmp_lidarrArtistNameSearchSanitized="$(echo "$tmp_lidarrArtistName" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g")"
+    # tmp_albumArtistNameSearch="$(jq -R -r @uri <<<"${tmp_lidarrArtistNameSearchSanitized}")"
+    # log "DEBUG :: tmp_albumArtistNameSearch: ${tmp_albumArtistNameSearch}"
 
-    tmp_lidarrAlbumReleaseIds=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases | sort_by(.trackCount) | reverse | .[].id")
-    for tmp_releaseId in $(echo "$tmp_lidarrAlbumReleaseIds"); do
-        tmp_releaseTitle=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases[] | select(.id==$tmp_releaseId) | .title")
-        tmp_releaseDisambiguation=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases[] | select(.id==$tmp_releaseId) | .disambiguation")
-        if [ -z "$tmp_releaseDisambiguation" ]; then
-            tmp_releaseDisambiguation=""
-        else
-            tmp_releaseDisambiguation=" ($tmp_releaseDisambiguation)"
-        fi
-        echo "${tmp_releaseTitle}${tmp_releaseDisambiguation}" >>/tmp/release-list
-    done
-    tmp_lidarrAlbumTitle=$(echo "$tmp_lidarrAlbumData" | jq -r ".title")
-    echo "$tmp_lidarrAlbumTitle" >>/tmp/release-list
-    OLDIFS="$IFS"
-    IFS=$'\n'
-    tmp_lidarrReleaseTitles=$(cat /tmp/release-list | awk '{ print length, $0 }' | sort -u -n -s -r | cut -d" " -f2-)
-    tmp_lidarrReleaseTitles=($(echo "$tmp_lidarrReleaseTitles"))
-    IFS="$OLDIFS"
-    for tmp_title in ${!tmp_lidarrReleaseTitles[@]}; do
-        tmp_lidarrReleaseTitle="${tmp_lidarrReleaseTitles[$tmp_title]}"
-        tmp_lidarrAlbumReleaseTitleSearchClean="$(echo "$tmp_lidarrReleaseTitle" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g" | sed 's/^[.]*//' | sed 's/[.]*$//g' | sed 's/^ *//g' | sed 's/ *$//g')"
-        tmp_albumTitleSearch="$(jq -R -r @uri <<<"${tmp_lidarrAlbumReleaseTitleSearchClean}")"
-        log "DEBUG :: tmp_albumTitleSearch: ${tmp_albumTitleSearch}"
-    done
-    rm -f /tmp/release-list
+    # tmp_lidarrAlbumReleaseIds=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases | sort_by(.trackCount) | reverse | .[].id")
+    # for tmp_releaseId in $(echo "$tmp_lidarrAlbumReleaseIds"); do
+    #     tmp_releaseTitle=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases[] | select(.id==$tmp_releaseId) | .title")
+    #     tmp_releaseDisambiguation=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases[] | select(.id==$tmp_releaseId) | .disambiguation")
+    #     if [ -z "$tmp_releaseDisambiguation" ]; then
+    #         tmp_releaseDisambiguation=""
+    #     else
+    #         tmp_releaseDisambiguation=" ($tmp_releaseDisambiguation)"
+    #     fi
+    #     echo "${tmp_releaseTitle}${tmp_releaseDisambiguation}" >>/tmp/release-list
+    # done
+    # tmp_lidarrAlbumTitle=$(echo "$tmp_lidarrAlbumData" | jq -r ".title")
+    # echo "$tmp_lidarrAlbumTitle" >>/tmp/release-list
+    # OLDIFS="$IFS"
+    # IFS=$'\n'
+    # tmp_lidarrReleaseTitles=$(cat /tmp/release-list | awk '{ print length, $0 }' | sort -u -n -s -r | cut -d" " -f2-)
+    # tmp_lidarrReleaseTitles=($(echo "$tmp_lidarrReleaseTitles"))
+    # IFS="$OLDIFS"
+    # for tmp_title in ${!tmp_lidarrReleaseTitles[@]}; do
+    #     tmp_lidarrReleaseTitle="${tmp_lidarrReleaseTitles[$tmp_title]}"
+    #     tmp_lidarrAlbumReleaseTitleSearchClean="$(echo "$tmp_lidarrReleaseTitle" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g" | sed 's/^[.]*//' | sed 's/[.]*$//g' | sed 's/^ *//g' | sed 's/ *$//g')"
+    #     tmp_albumTitleSearch="$(jq -R -r @uri <<<"${tmp_lidarrAlbumReleaseTitleSearchClean}")"
+    #     log "DEBUG :: tmp_albumTitleSearch: ${tmp_albumTitleSearch}"
+    # done
+    # rm -f /tmp/release-list
 
     # Extract artist and album info
     local lidarrArtistData lidarrArtistName lidarrArtistId lidarrArtistForeignArtistId
@@ -1121,8 +1188,9 @@ log "DEBUG :: AUDIO_WORK_PATH=${AUDIO_WORK_PATH}"
 AddLidarrTags
 AddLidarrDownloadClient
 
-# Setup Deemix
-DeemixClientSetup
+# Setup Deemix & Beets
+SetupDeemix
+SetupBeets
 
 log "INFO :: Lift off in..."
 sleep 0.5
