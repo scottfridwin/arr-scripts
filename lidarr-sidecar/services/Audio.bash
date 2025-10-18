@@ -450,45 +450,54 @@ DownloadProcess() {
     # Remove now-empty subdirectories
     find "${AUDIO_WORK_PATH}/staging/" -type d -mindepth 1 -maxdepth 1 -exec rm -rf {} \; 2>/dev/null
 
+    local returnCode=0
     # Add ReplayGain tags if enabled
-    if [ "${AUDIO_APPLY_REPLAYGAIN}" == "true" ]; then
+    if [ "$returnCode" -eq 0 ] && [ "${AUDIO_APPLY_REPLAYGAIN}" == "true" ]; then
         AddReplaygainTags "${AUDIO_WORK_PATH}/staging"
+        returnCode=$?
     else
         log "INFO :: Replaygain tagging disabled"
     fi
 
     # Add Beets tags if enabled
-    if [ "${AUDIO_APPLY_BEETS}" == "true" ]; then
+    if [ "$returnCode" -eq 0 ] && [ "${AUDIO_APPLY_BEETS}" == "true" ]; then
         AddBeetsTags "${AUDIO_WORK_PATH}/staging"
+        returnCode=$?
     else
         log "INFO :: Beets tagging disabled"
     fi
 
     # Add the musicbrainz album id to the files
-    shopt -s nullglob
-    # TODO: Tag more than just FLAC files if needed
-    for file in "${AUDIO_WORK_PATH}"/staging/*.flac; do
-        log "DEBUG :: file $file"
-        [ -f "$file" ] || continue # extra safety in case glob expands to nothing
-        metaflac --set-tag=MUSICBRAINZ_ALBUMID="$mbAlbumId" "$file"
-        metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
-        metaflac --remove-tag=ALBUM "$file"
-        metaflac --set-tag=ALBUM="$lidarrAlbumTitle" "$file"
-        log "DEBUG :: File \"${file}\" tagged with MUSICBRAINZ_ALBUMID=${mbAlbumId} and MUSICBRAINZ_RELEASEGROUPID=${mbReleaseGroupId}"
-    done
-    shopt -u nullglob
+    if [ "$returnCode" -eq 0 ]; then
+        shopt -s nullglob
+        # TODO: Tag more than just FLAC files if needed
+        for file in "${AUDIO_WORK_PATH}"/staging/*.flac; do
+            log "DEBUG :: file $file"
+            [ -f "$file" ] || continue # extra safety in case glob expands to nothing
+            metaflac --set-tag=MUSICBRAINZ_ALBUMID="$mbAlbumId" "$file"
+            metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
+            metaflac --remove-tag=ALBUM "$file"
+            metaflac --set-tag=ALBUM="$lidarrAlbumTitle" "$file"
+            log "DEBUG :: File \"${file}\" tagged with MUSICBRAINZ_ALBUMID=${mbAlbumId} and MUSICBRAINZ_RELEASEGROUPID=${mbReleaseGroupId}"
+        done
+        shopt -u nullglob
+    fi
 
     # Log Completed Download
-    log "INFO :: Album \"${deezerAlbumTitle}\" successfully downloaded"
-    touch "${AUDIO_DATA_PATH}/downloaded/${deezerAlbumId}"
+    if [ "$returnCode" -eq 0 ]; then
+        log "INFO :: Album \"${deezerAlbumTitle}\" successfully downloaded"
+        touch "${AUDIO_DATA_PATH}/downloaded/${deezerAlbumId}"
 
-    local downloadedAlbumFolder="${deezerArtistNameClean}-${deezerAlbumTitleClean:0:100} (${downloadedReleaseYear})"
-    mkdir -p "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
-    find "${AUDIO_WORK_PATH}/staging" -type f -regex ".*/.*\.\(flac\|m4a\|mp3\|flac\|opus\)" -exec mv {} "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"/ \;
+        local downloadedAlbumFolder="${deezerArtistNameClean}-${deezerAlbumTitleClean:0:100} (${downloadedReleaseYear})"
+        mkdir -p "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
+        find "${AUDIO_WORK_PATH}/staging" -type f -regex ".*/.*\.\(flac\|m4a\|mp3\|flac\|opus\)" -exec mv {} "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"/ \;
 
-    NotifyLidarrForImport "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
+        NotifyLidarrForImport "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
+    else
+        log "WARNING :: Album \"${deezerAlbumTitle}\" failed post-processing and was skipped"
+    fi
 
-    # Clean up incomplete folder
+    # Clean up staging folder
     rm -rf "${AUDIO_WORK_PATH}/staging"/*
     log "TRACE :: Exiting DownloadProcess..."
 }
@@ -501,12 +510,15 @@ AddReplaygainTags() {
     log "INFO :: Adding ReplayGain Tags using r128gain"
     local importPath="${1}"
 
+    local returnCode=0
     if ! r128gain -r -c 1 -a "${importPath}" >/dev/null 2>/tmp/r128gain_errors.log; then
         log "WARNING :: r128gain encountered errors while processing $1. See /tmp/r128gain_errors.log for details."
-    else
-        rm -f /tmp/r128gain_errors.log
+        returnCode=1
     fi
+
+    rm -f /tmp/r128gain_errors.log
     log "TRACE :: Exiting AddReplaygainTags..."
+    return ${returnCode}
 }
 
 AddBeetsTags() {
@@ -522,6 +534,7 @@ AddBeetsTags() {
     touch ${BEETS_DIR}/beets-library.blb
     touch ${BEETS_DIR}/beets.timer
 
+    local returnCode=0
     # Process with Beets
     (
         export XDG_CONFIG_HOME="${BEETS_DIR}/.config"
@@ -535,9 +548,11 @@ AddBeetsTags() {
         log "INFO :: Successfully added Beets tags"
     else
         log "WARNING :: Unable to match using beets to a musicbrainz release"
+        returnCode=1
     fi
 
     log "TRACE :: Exiting AddBeetsTags..."
+    return ${returnCode}
 }
 
 # Notify Lidarr to import the downloaded album
