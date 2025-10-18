@@ -457,6 +457,13 @@ DownloadProcess() {
         log "INFO :: Replaygain tagging disabled"
     fi
 
+    # Add Beets tags if enabled
+    if [ "${AUDIO_APPLY_BEETS}" == "true" ]; then
+        AddBeetsTags "${AUDIO_WORK_PATH}/staging"
+    else
+        log "INFO :: Beets tagging disabled"
+    fi
+
     # Add the musicbrainz album id to the files
     shopt -s nullglob
     # TODO: Tag more than just FLAC files if needed
@@ -515,7 +522,7 @@ AddBeetsTags() {
     touch ${BEETS_DIR}/beets-library.blb
 
     # Process with Beets
-    beet -c "${DEEMIX_CONFIG_PATH}" -l ${BEETS_DIR}/beets-library.blb -d "$1" import -qC "$1"
+    beet -c "${BEETS_CONFIG_PATH}" -l ${BEETS_DIR}/beets-library.blb -d "$1" import -qC "$1"
 
     if [ $(find "${importPath}" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "${BEETS_DIR}/beets.timer" | wc -l) -gt 0 ]; then
         log "INFO :: Successfully added Beets tags"
