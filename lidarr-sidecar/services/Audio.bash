@@ -511,9 +511,13 @@ AddReplaygainTags() {
     local importPath="${1}"
 
     local returnCode=0
-    if ! r128gain -r -c 1 -a "${importPath}" >/dev/null 2>/tmp/r128gain_errors.log; then
+    (
+        set +e # disable -e temporarily in subshell
+        r128gain -r -c 1 -a "${importPath}" >/dev/null 2>/tmp/r128gain_errors.log
+    )
+    returnCode=$? # <- captures exit code of subshell
+    if [ $returnCode -ne 0 ]; then
         log "WARNING :: r128gain encountered errors while processing $1. See /tmp/r128gain_errors.log for details."
-        returnCode=1
     fi
 
     rm -f /tmp/r128gain_errors.log
@@ -537,6 +541,7 @@ AddBeetsTags() {
     local returnCode=0
     # Process with Beets
     (
+        set +e # disable -e temporarily in subshell
         export XDG_CONFIG_HOME="${BEETS_DIR}/.config"
         export HOME="${BEETS_DIR}"
         mkdir -p "${XDG_CONFIG_HOME}"
@@ -544,7 +549,10 @@ AddBeetsTags() {
             -l "${BEETS_DIR}/beets-library.blb" \
             -d "$1" import -qC "$1"
     )
-    if [ $(find "${importPath}" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "${BEETS_DIR}/beets.timer" | wc -l) -gt 0 ]; then
+    returnCode=$? # <- captures exit code of subshell
+    if [ $returnCode -ne 0 ]; then
+        log "WARNING :: Beets returned error code ${returnCode}"
+    elif [ $(find "${importPath}" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "${BEETS_DIR}/beets.timer" | wc -l) -gt 0 ]; then
         log "INFO :: Successfully added Beets tags"
     else
         log "WARNING :: Unable to match using beets to a musicbrainz release"
