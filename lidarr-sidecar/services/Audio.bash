@@ -399,7 +399,7 @@ DownloadProcess() {
         (
             cd ${DEEMIX_DIR}
             deemix \
-                -arl "${DEEMIX_ARL}" \
+                --arl "${DEEMIX_ARL}" \
                 -b "${deemixQuality}" \
                 -p "${AUDIO_WORK_PATH}/staging" \
                 "https://www.deezer.com/album/${deezerAlbumId}" 2>&1
