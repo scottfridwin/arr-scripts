@@ -398,11 +398,10 @@ DownloadProcess() {
         log "INFO :: Download attempt #${downloadTry} for album \"${deezerAlbumTitle}\""
         (
             cd ${DEEMIX_DIR}
-            deemix \
-                --arl "${DEEMIX_ARL}" \
+            printf "%s\n" "${DEEMIX_ARL}" | deemix \
                 -b "${deemixQuality}" \
                 -p "${AUDIO_WORK_PATH}/staging" \
-                "https://www.deezer.com/album/${deezerAlbumId}" 2>&1
+                "https://www.deezer.com/album/${deezerAlbumId}" 2> >(grep -v "Paste here your arl:")
 
             # Clean up any temporary deemix data
             rm -rf /tmp/deemix-imgs 2>/dev/null || true
