@@ -12,7 +12,7 @@ readonly VARIOUS_ARTIST_ID="89ad4ac3-39f7-470e-963a-56509c546377"
 readonly DEEMIX_DIR="/tmp/deemix"
 readonly DEEMIX_CONFIG_PATH="${DEEMIX_DIR}/config.json"
 readonly BEETS_DIR="/tmp/beets"
-readonly BEETS_CONFIG_PATH="${BEETS_DIR}/config.json"
+readonly BEETS_CONFIG_PATH="${BEETS_DIR}/beets.yaml"
 
 # Levenshtein Distance calculation
 LevenshteinDistance() {
