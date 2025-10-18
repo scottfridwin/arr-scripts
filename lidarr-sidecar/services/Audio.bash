@@ -396,16 +396,17 @@ DownloadProcess() {
 
         local deemixQuality=flac
         log "INFO :: Download attempt #${downloadTry} for album \"${deezerAlbumTitle}\""
-        {
+        (
             cd ${DEEMIX_DIR}
-            echo "${DEEMIX_ARL}" | deemix \
+            deemix \
+                -arl "${DEEMIX_ARL}" \
                 -b "${deemixQuality}" \
                 -p "${AUDIO_WORK_PATH}/staging" \
                 "https://www.deezer.com/album/${deezerAlbumId}" 2>&1
 
             # Clean up any temporary deemix data
             rm -rf /tmp/deemix-imgs 2>/dev/null || true
-        }
+        )
 
         # Check if any audio files were downloaded
         local clientTestDlCount
@@ -520,6 +521,7 @@ AddBeetsTags() {
     rm -f ${BEETS_DIR}/beets.log
     rm -f ${BEETS_DIR}/beets.timer
     touch ${BEETS_DIR}/beets-library.blb
+    touch ${BEETS_DIR}/beets.timer
 
     # Process with Beets
     (
@@ -1110,12 +1112,12 @@ DownloadBestMatch() {
         diff=$(LevenshteinDistance "${releaseTitleClean,,}" "${deezerAlbumTitleClean,,}")
         trackDiff=$((trackCount > deezerAlbumTrackCount ? trackCount - deezerAlbumTrackCount : deezerAlbumTrackCount - trackCount))
 
-        log "INFO :: DL Dist=${diff} TrackDiff=${trackDiff} (${deezerAlbumTrackCount} tracks)"
+        log "DEBUG :: DL Dist=${diff} TrackDiff=${trackDiff} (${deezerAlbumTrackCount} tracks)"
 
         if ((diff <= ${AUDIO_MATCH_DISTANCE_THRESHOLD})); then
             log "INFO :: Potential match found :: ${deezerAlbumTitle} (${downloadedReleaseYear}) :: Distance=${diff} TrackDiff=${trackDiff}"
         else
-            log "INFO :: Album does not meet matching threshold, skipping..."
+            log "DEBUG :: Album does not meet matching threshold, skipping..."
             continue
         fi
 
