@@ -289,8 +289,15 @@ set_state() {
 
 # Generic getter: get_state <key>
 get_state() {
-  local name=$(_get_state_name)
-  local -n obj="$name"
   local key="$1"
+  local name=$(_get_state_name)
+
+  # Check if the state object exists
+  if ! declare -p "$name" &>/dev/null; then
+    echo "Error: State object '$name' not found" >&2
+    return 1
+  fi
+
+  local -n obj="$name"
   echo "${obj[$key]}"
 }
