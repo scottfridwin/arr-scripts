@@ -216,7 +216,8 @@ AddLidarrTags() {
     local response tagCheck httpCode
 
     # Fetch existing tags once
-    response=$(LidarrApiRequest "GET" "tag")
+    LidarrApiRequest "GET" "tag"
+	response=$(get_state "lidarrApiResponse")
 
     # Split comma-separated AUDIO_TAGS into array
     IFS=',' read -ra tags <<<"${AUDIO_TAGS}"
