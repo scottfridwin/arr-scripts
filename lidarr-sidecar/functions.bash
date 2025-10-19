@@ -1,7 +1,4 @@
 declare -A LOG_PRIORITY=(["TRACE"]=0 ["DEBUG"]=1 ["INFO"]=2 ["WARNING"]=3 ["ERROR"]=4)
-: "${lidarrUrl:=}"
-: "${lidarrApiKey:=}"
-: "${lidarrApiVersion:=}"
 
 # Logs messages with levels and respects LOG_LEVEL setting
 log() {
@@ -101,8 +98,8 @@ LidarrApiRequest() {
   local payload="${3:-}"
   local response body httpCode
 
-local tmpUrl=$(get_state "lidarrUrl")
-  log "INFO :: tmpUrl: $tmpUrl"
+  local lidarrUrl=$(get_state "lidarrUrl")
+  local lidartApiKey=$(get_state "lidarrApiKey")
   if [[ -z "$lidarrUrl" || -z "$lidarrApiKey" || -z "$lidarrApiVersion" ]]; then
     log "INFO :: Need to retrieve lidarr connection details in order to perform API requests"
     verifyLidarrApiAccess
@@ -204,8 +201,6 @@ verifyLidarrApiAccess() {
     exit 1
   fi
 
-local tmpUrl=$(get_state "lidarrUrl")
-  log "INFO :: tmpUrl: $tmpUrl"
   local apiTest=""
 
   until [ -n "$apiTest" ]; do
@@ -230,9 +225,7 @@ local tmpUrl=$(get_state "lidarrUrl")
     setUnhealthy
     exit 1
   fi
-
-  # Export variables for use in other functions and subshells
-  export lidarrUrl lidarrApiKey lidarrApiVersion
+  set_state "lidarrApiVersion" "${lidarrApiVersion}"
 
   log "INFO :: Lidarr API access verified (URL: ${lidarrUrl}, API Version: ${lidarrApiVersion})"
   log "TRACE :: Exiting verifyLidarrApiAccess..."
