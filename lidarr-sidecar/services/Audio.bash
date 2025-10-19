@@ -478,6 +478,7 @@ DownloadProcess() {
             metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
             metaflac --remove-tag=ALBUM "$file"
             metaflac --set-tag=ALBUM="$lidarrAlbumTitle" "$file"
+            metaflac --remove-tag=MUSICBRAINZ_TRACKID "$file" # Helps with some matching issues in Lidarr
             log "DEBUG :: File \"${file}\" tagged with MUSICBRAINZ_ALBUMID=${mbAlbumId} and MUSICBRAINZ_RELEASEGROUPID=${mbReleaseGroupId}"
         done
         shopt -u nullglob
@@ -549,16 +550,16 @@ AddBeetsTags() {
             -l "${BEETS_DIR}/beets-library.blb" \
             -d "$1" import -qC "$1"
 
-    returnCode=$? # <- captures exit code of subshell
-    if [ $returnCode -ne 0 ]; then
-        log "WARNING :: Beets returned error code ${returnCode}"
-    elif [ $(find "${importPath}" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "${BEETS_DIR}/beets.timer" | wc -l) -gt 0 ]; then
-        log "INFO :: Successfully added Beets tags"
-    else
-        log "WARNING :: Unable to match using beets to a musicbrainz release"
-        returnCode=1
-    fi
-	)
+        returnCode=$? # <- captures exit code of subshell
+        if [ $returnCode -ne 0 ]; then
+            log "WARNING :: Beets returned error code ${returnCode}"
+        elif [ $(find "${importPath}" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "${BEETS_DIR}/beets.timer" | wc -l) -gt 0 ]; then
+            log "INFO :: Successfully added Beets tags"
+        else
+            log "WARNING :: Unable to match using beets to a musicbrainz release"
+            returnCode=1
+        fi
+    )
 
     log "TRACE :: Exiting AddBeetsTags..."
     return ${returnCode}
