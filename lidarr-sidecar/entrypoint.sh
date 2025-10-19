@@ -21,6 +21,9 @@ log "DEBUG :: LIDARR_PORT=${LIDARR_PORT}"
 # Start with healthy status
 setHealthy
 
+# Initalize state object
+init_state
+
 # Validate environment variables
 validateEnvironment
 
