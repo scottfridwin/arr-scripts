@@ -54,6 +54,12 @@ updateLidarrConfig() {
     log "TRACE :: Exiting updateLidarrConfig..."
 }
 
+# Initalize state object
+init_state
+
+# Verify Lidarr API access
+verifyLidarrApiAccess
+
 # Conditionally update each setting
 [ "${AUTOCONFIG_MEDIA_MANAGEMENT}" == "true" ] &&
     updateLidarrConfig "${AUTOCONFIG_MEDIA_MANAGEMENT_JSON}" "config/mediamanagement" "Media Management"
