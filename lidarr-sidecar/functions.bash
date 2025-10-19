@@ -253,3 +253,40 @@ normalize_string() {
       -e 's/[[:space:]]\+/ /g' \
       -e 's/^ *//; s/ *$//'
 }
+
+# Create a named associative array: auto-named using shell PID
+init_state() {
+  local name=$(_get_state_name)
+
+  # Check if the variable already exists
+  if declare -p "$name" &>/dev/null; then
+    log "ERROR :: State object '$name' already exists."
+    setUnhealthy
+    exit 1
+  fi
+
+  # Create the global associative array
+  eval "declare -gA ${name}=()"
+}
+
+# Internal helper to resolve current state object name
+_get_state_name() {
+  echo "state_$$"
+}
+
+# Generic setter: set_state <key> <value>
+set_state() {
+  local name=$(_get_state_name)
+  local -n obj="$name"
+  local key="$1"
+  local value="$2"
+  obj["$key"]="$value"
+}
+
+# Generic getter: get_state <key>
+get_state() {
+  local name=$(_get_state_name)
+  local -n obj="$name"
+  local key="$1"
+  echo "${obj[$key]}"
+}
