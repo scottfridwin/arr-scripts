@@ -60,6 +60,7 @@ getLidarrApiKey() {
       setUnhealthy
       exit 1
     fi
+    set_state "lidarrApiKey" "${lidarrApiKey}"
   fi
   log "TRACE :: Exiting getLidarrApiKey..."
 }
@@ -84,6 +85,7 @@ getLidarrUrl() {
 
     # Construct and return the full URL
     lidarrUrl="http://${LIDARR_HOST}:${lidarrPort}${lidarrUrlBase}"
+    set_state "lidarrUrl" "${lidarrUrl}"
   fi
   log "TRACE :: Exiting getLidarrUrl..."
 }
@@ -99,6 +101,8 @@ LidarrApiRequest() {
   local payload="${3:-}"
   local response body httpCode
 
+  local tmpUrl=$(get_state "lidarrUrl")
+  log "INFO :: tmpUrl: $tmpUrl"
   if [[ -z "$lidarrUrl" || -z "$lidarrApiKey" || -z "$lidarrApiVersion" ]]; then
     log "INFO :: Need to retrieve lidarr connection details in order to perform API requests"
     verifyLidarrApiAccess
