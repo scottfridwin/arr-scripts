@@ -1225,6 +1225,12 @@ log "DEBUG :: AUDIO_WORK_PATH=${AUDIO_WORK_PATH}"
 
 ### Main ###
 
+# Initalize state object
+init_state
+
+# Verify Lidarr API access
+verifyLidarrApiAccess
+
 # Create Lidarr entities
 AddLidarrTags
 AddLidarrDownloadClient
