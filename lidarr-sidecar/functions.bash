@@ -101,8 +101,6 @@ LidarrApiRequest() {
   local payload="${3:-}"
   local response body httpCode
 
-  local tmpUrl=$(get_state "lidarrUrl")
-  log "INFO :: tmpUrl: $tmpUrl"
   if [[ -z "$lidarrUrl" || -z "$lidarrApiKey" || -z "$lidarrApiVersion" ]]; then
     log "INFO :: Need to retrieve lidarr connection details in order to perform API requests"
     verifyLidarrApiAccess
@@ -204,6 +202,8 @@ verifyLidarrApiAccess() {
     exit 1
   fi
 
+local tmpUrl=$(get_state "lidarrUrl")
+  log "INFO :: tmpUrl: $tmpUrl"
   local apiTest=""
 
   until [ -n "$apiTest" ]; do
