@@ -905,6 +905,8 @@ SearchProcess() {
                     log "DEBUG :: deezerArtistIds: ${deezerArtistIds[*]}"
                     for dId in "${!deezerArtistIds[@]}"; do
                         local deezerArtistId="${deezerArtistIds[$dId]}"
+						#TODO: This will download the best match, even if we should still search through the rest of the mb releases inside the mb release group.
+						# Need to track best match through all of the releases and then download only if a perfect match is not found.
                         ArtistDeezerSearch matchFound "${lyricType}" "${deezerArtistId}" "${lidarrReleaseTitle}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}" "${lidarrAlbumTitle}"
                         log "DEBUG :: matchFound: ${matchFound}"
                     done
