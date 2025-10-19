@@ -127,12 +127,13 @@ LidarrApiRequest() {
     httpCode=$(tail -n1 <<<"${response}")
     body=$(sed '$d' <<<"${response}")
 
+    set_state "lidarrApiReponseCode" "${httCode}"
+    set_state "lidarrApiResponse" "${body}"
     log "TRACE :: httpCode: ${httpCode}"
     log "TRACE :: body: ${body}"
     case "${httpCode}" in
     200 | 201 | 202 | 204)
-      # Successful request, return JSON body
-      echo "${body}"
+      # Successful request
       break
       ;;
     000)
@@ -172,7 +173,8 @@ LidarrTaskStatusCheck() {
 
   while true; do
     # Fetch all commands from Lidarr
-    taskList=$(LidarrApiRequest "GET" "command")
+    LidarrApiRequest "GET" "command"
+    tasklist=$(get_state "lidarrApiResponse")
 
     # Count active tasks
     taskCount=$(jq -r '.[] | select(.status=="started") | .name' <<<"${taskList}" | wc -l)
