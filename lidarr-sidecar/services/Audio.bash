@@ -1063,7 +1063,7 @@ DownloadProcess() {
 
     # Add the musicbrainz album id to the files
     if [ "$returnCode" -eq 0 ]; then
-        local lidarrAlbumData="${get_state "lidarrAlbumData"}"
+        local lidarrAlbumData="$(get_state "lidarrAlbumData")"
         local lidarrAlbumTitle="$(jq -r ".title" <<<"${lidarrAlbumData}")"
         local lidarrAlbumForeignAlbumId="$(jq -r ".foreignAlbumId" <<<"${lidarrAlbumData}")"
         local lidarrReleaseForeignId="$(jq -r ".foreignReleaseId" <<<"${lidarrAlbumData}")"
