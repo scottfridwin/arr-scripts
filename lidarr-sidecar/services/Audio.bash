@@ -454,9 +454,10 @@ ProcessLidarrWantedList() {
         log "INFO :: Downloading page ${page} of ${totalPages} for ${listType} albums"
 
         # Fetch page of album IDs
+        LidarrApiRequest "GET" "wanted/${listType}?page=${page}&pagesize=${pageSize}&sortKey=${searchOrder}&sortDirection=${searchDirection}"
+        local lidarrPage="$(get_state "lidarrApiResponse")"
         mapfile -t tocheck < <(
-            LidarrApiRequest "GET" "wanted/${listType}?page=${page}&pagesize=${pageSize}&sortKey=${searchOrder}&sortDirection=${searchDirection}" |
-                jq -r '.records[].id' | sort
+            jq -r '.records[].id // empty' <<<"$lidarrPage" | sort -u
         )
 
         # Filter out already failed/notfound IDs
