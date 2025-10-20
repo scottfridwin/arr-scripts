@@ -97,7 +97,7 @@ GetDeezerAlbumInfo() {
         # Validate JSON
         if albumJson=$(jq -e . <"${albumCacheFile}" 2>/dev/null); then
             #log "DEBUG :: albumJson: ${albumJson}"
-            echo "${albumJson}"
+            set_state "deezerAlbumInfo" "${albumJson}"
             returnCode=0
             break
         else
@@ -149,7 +149,7 @@ GetDeezerArtistAlbums() {
         # Validate JSON
         if artistJson=$(jq -e . <"${artistCacheFile}" 2>/dev/null); then
             #log "DEBUG :: artistJson: ${artistJson}"
-            echo "${artistJson}"
+            set_state "deezerArtistInfo" "${albumJson}"
             returnCode=0
             break
         else
@@ -192,7 +192,7 @@ CallDeezerAPI() {
 
         if [[ "${httpCode}" -eq 200 ]]; then
             #log "DEBUG :: body: ${body}"
-            echo "${body}" # Return JSON body
+            set_state "deezerApiResponse" "${body}"
             returnCode=0
             break
         else
@@ -217,7 +217,7 @@ AddLidarrTags() {
 
     # Fetch existing tags once
     LidarrApiRequest "GET" "tag"
-	response=$(get_state "lidarrApiResponse")
+    response="$(get_state "lidarrApiResponse")"
 
     # Split comma-separated AUDIO_TAGS into array
     IFS=',' read -ra tags <<<"${AUDIO_TAGS}"
@@ -231,7 +231,8 @@ AddLidarrTags() {
 
         if [ -z "${tagCheck}" ]; then
             log "INFO :: Tag not found, creating tag: ${tag}"
-            response=$(LidarrApiRequest "POST" "tag" "{\"label\":\"${tag}\"}")
+            LidarrApiRequest "POST" "tag" "{\"label\":\"${tag}\"}"
+            response="$(get_state "lidarrApiResponse")"
         else
             log "INFO :: Tag already exists: ${tag}"
         fi
@@ -245,7 +246,8 @@ AddLidarrDownloadClient() {
     local downloadClientsData downloadClientCheck httpCode
 
     # Get list of existing download clients
-    downloadClientsData=$(LidarrApiRequest "GET" "downloadclient")
+    LidarrApiRequest "GET" "downloadclient"
+    downloadClientsData="$(get_state "lidarrApiResponse")"
 
     # Check if our custom client already exists
     downloadClientCheck=$(echo "${downloadClientsData}" | jq -r '.[]?.name' | grep -Fx "${AUDIO_DOWNLOADCLIENT_NAME}" || true)
@@ -677,9 +679,10 @@ ProcessLidarrWantedList() {
     log "INFO :: Retrieving ${listType} albums from Lidarr"
 
     # Get total count of albums
-    local totalRecords
-    totalRecords=$(LidarrApiRequest "GET" "wanted/${listType}?page=1&pagesize=1&sortKey=${searchOrder}&sortDirection=${searchDirection}" |
-        jq -r .totalRecords)
+    local response totalRecords
+    LidarrApiRequest "GET" "wanted/${listType}?page=1&pagesize=1&sortKey=${searchOrder}&sortDirection=${searchDirection}"
+    response="$(get_state "lidarrApiResponse")"
+    totalRecords=$(echo "$response" | jq -r .totalRecords)
     log "INFO :: Found ${totalRecords} ${listType} albums"
 
     if ((totalRecords < 1)); then
@@ -739,7 +742,8 @@ SearchProcess() {
 
     # Fetch album data from Lidarr
     local lidarrAlbumData
-    lidarrAlbumData="$(LidarrApiRequest "GET" "album/${wantedAlbumId}")"
+    LidarrApiRequest "GET" "album/${wantedAlbumId}"
+    lidarrAlbumData="$(get_state "lidarrApiResponse")"
     if [ -z "$lidarrAlbumData" ]; then
         log "WARNING :: Lidarr returned no data for album ID ${wantedAlbumId}"
         return
@@ -906,8 +910,8 @@ SearchProcess() {
                     log "DEBUG :: deezerArtistIds: ${deezerArtistIds[*]}"
                     for dId in "${!deezerArtistIds[@]}"; do
                         local deezerArtistId="${deezerArtistIds[$dId]}"
-						#TODO: This will download the best match, even if we should still search through the rest of the mb releases inside the mb release group.
-						# Need to track best match through all of the releases and then download only if a perfect match is not found.
+                        #TODO: This will download the best match, even if we should still search through the rest of the mb releases inside the mb release group.
+                        # Need to track best match through all of the releases and then download only if a perfect match is not found.
                         ArtistDeezerSearch matchFound "${lyricType}" "${deezerArtistId}" "${lidarrReleaseTitle}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}" "${lidarrAlbumTitle}"
                         log "DEBUG :: matchFound: ${matchFound}"
                     done
@@ -977,7 +981,10 @@ ArtistDeezerSearch() {
 
     # Get Deezer artist album list
     local artistAlbums filteredAlbums resultsCount
-    if artistAlbums=$(GetDeezerArtistAlbums "${artistId}"); then
+    GetDeezerArtistAlbums "${artistId}"
+    local returnCode=$?
+    if [ "$returnCode" -eq 0 ]; then
+        artistAlbums="$(get_state "deezerArtistInfo")"
         # Filter albums by lyric type (true/false for explicit_lyrics)
         filteredAlbums=$(jq -c ".data | map(select(.explicit_lyrics == ${explicitFilter}))" <<<"${artistAlbums}")
 
@@ -1049,7 +1056,10 @@ FuzzyDeezerSearch() {
     fi
 
     # Call Deezer API
-    if deezerSearch=$(CallDeezerAPI "${url}"); then
+    CallDeezerAPI "${url}"
+    local returnCode=$?
+    if [ "$returnCode" -eq 0 ]; then
+        deezerSearch="$(get_state "deezerApiResponse")"
         log "TRACE :: deezerSearch: ${deezerSearch}"
         if [[ -n "${deezerSearch}" ]]; then
             resultsCount=$(jq '.total' <<<"${deezerSearch}")
@@ -1126,7 +1136,10 @@ DownloadBestMatch() {
         deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"
 
         # Get album info from Deezer
-        if deezerAlbumData=$(GetDeezerAlbumInfo "${deezerAlbumID}"); then
+        GetDeezerAlbumInfo "${deezerAlbumID}"
+        local returnCode=$?
+        if [ "$returnCode" -eq 0 ]; then
+            deezerAlbumData="$(get_state "deezerAlbumInfo")"
             deezerAlbumTrackCount=$(jq -r .nb_tracks <<<"${deezerAlbumData}")
             downloadedReleaseDate=$(jq -r .release_date <<<"${deezerAlbumData}")
             downloadedReleaseYear="${downloadedReleaseDate:0:4}"
@@ -1173,7 +1186,10 @@ DownloadBestMatch() {
     if [[ -n "${bestMatchID}" ]]; then
         log "INFO :: Using best match :: ${bestMatchTitle} (${bestMatchYear}) :: Distance=${bestMatchDistance} TrackDiff=${bestMatchTrackDiff}"
 
-        if deezerAlbumData=$(GetDeezerAlbumInfo "${bestMatchID}"); then
+        GetDeezerAlbumInfo "${bestMatchID}"
+        local returnCode=$?
+        if [ "$returnCode" -eq 0 ]; then
+            deezerAlbumData="$(get_state "deezerAlbumInfo")"
             DownloadProcess "${mbAlbumId}" "${mbReleaseGroupId}" "${lidarrAlbumTitle}" <<<"${deezerAlbumData}"
             eval "$matchVarName=true"
         else

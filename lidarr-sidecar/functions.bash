@@ -98,9 +98,9 @@ LidarrApiRequest() {
   local payload="${3:-}"
   local response body httpCode
 
-  local lidarrUrl=$(get_state "lidarrUrl")
-  local lidartApiKey=$(get_state "lidarrApiKey")
-  local lidartApiVersion=$(get_state "lidarrApiVersion")
+  local lidarrUrl="$(get_state "lidarrUrl")"
+  local lidartApiKey="$(get_state "lidarrApiKey")"
+  local lidartApiVersion="$(get_state "lidarrApiVersion")"
   if [[ -z "$lidarrUrl" || -z "$lidarrApiKey" || -z "$lidarrApiVersion" ]]; then
     log "INFO :: Need to retrieve lidarr connection details in order to perform API requests"
     verifyLidarrApiAccess
@@ -174,7 +174,7 @@ LidarrTaskStatusCheck() {
   while true; do
     # Fetch all commands from Lidarr
     LidarrApiRequest "GET" "command"
-    tasklist=$(get_state "lidarrApiResponse")
+    tasklist="$(get_state "lidarrApiResponse")"
 
     # Count active tasks
     taskCount=$(jq -r '.[] | select(.status=="started") | .name' <<<"${taskList}" | wc -l)
@@ -198,8 +198,8 @@ verifyLidarrApiAccess() {
   getLidarrApiKey
   getLidarrUrl
 
-  local lidarrUrl=$(get_state "lidarrUrl")
-  local lidartApiKey=$(get_state "lidarrApiKey")
+  local lidarrUrl="$(get_state "lidarrUrl")"
+  local lidartApiKey="$(get_state "lidarrApiKey")"
   if [ -z "$lidarrUrl" ] || [ -z "$lidarrApiKey" ]; then
     log "ERROR :: verifyLidarrApiAccess requires both URL and API key"
     setUnhealthy
