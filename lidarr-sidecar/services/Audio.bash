@@ -149,7 +149,7 @@ GetDeezerArtistAlbums() {
         # Validate JSON
         if artistJson=$(jq -e . <"${artistCacheFile}" 2>/dev/null); then
             #log "DEBUG :: artistJson: ${artistJson}"
-            set_state "deezerArtistInfo" "${albumJson}"
+            set_state "deezerArtistInfo" "${artistJson}"
             returnCode=0
             break
         else
