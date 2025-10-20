@@ -855,6 +855,8 @@ CalculateBestMatch() {
         # --- Normalize title ---
         deezerAlbumTitleClean="$(normalize_string "$deezerAlbumTitle")"
         deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"
+        # TODO - In some cases, albums have strange translations that need to happen for comparison to work.
+        #Example: For Taylor Swift's 1989, Deezer has "1989 (Deluxe Edition)" but musicbrainz has "1989 D.L.X." because that is the title on the album
 
         # Get album info from Deezer
         GetDeezerAlbumInfo "${deezerAlbumID}"

@@ -242,22 +242,22 @@ verifyLidarrApiAccess() {
 normalize_string() {
   # $1 -> the string to normalize
 
-  # Converts the right single quotation mark (’, Unicode U+2019) → straight apostrophe (', ASCII U+0027).
-  # Converts the left single quotation mark (‘, Unicode U+2018) → ' (ASCII apostrophe).
-  # Converts left double quotation mark (“, Unicode U+201C) → plain double quote (", ASCII U+0022).
-  # Converts right double quotation mark (”, Unicode U+201D) → ".
-  # Converts any sequence of whitespace characters (tabs, newlines, multiple spaces) into a single space.
-  # Converts non-breaking spaces (U+00A0) to regular spaces (U+0020).
-  # Converts en dashes (–, Unicode U+2013) to hyphens (-, ASCII U+002D).
-  # Removes leading and trailing spaces.
+  # Converts smart quotes → plain quotes
+  # Converts en dashes → hyphens
+  # Converts non-breaking spaces → regular spaces
+  # Collapses multiple spaces → one
+  # Trims leading/trailing spaces
+  # Removes parentheses
   echo "$1" |
     sed -e "s/’/'/g" \
       -e "s/‘/'/g" \
-      -e 's/“/"/g' -e 's/”/"/g' \
+      -e 's/“/"/g' \
+      -e 's/”/"/g' \
       -e 's/–/-/g' \
       -e 's/\xA0/ /g' \
       -e 's/[[:space:]]\+/ /g' \
-      -e 's/^ *//; s/ *$//'
+      -e 's/^ *//; s/ *$//' \
+      -e 's/[()]//g'
 }
 
 # Create a named associative array: auto-named using shell PID
