@@ -813,7 +813,7 @@ CalculateBestMatch() {
     local bestMatchTrackDiff="$(get_state "bestMatchTrackDiff")"
 
     local lidarrReleaseTrackCount="$(get_state "lidarrReleaseTrackCount")"
-    local lidarrReleaseTitle="${get_state "lidarrReleaseTitle"}"
+    local lidarrReleaseTitle="$(get_state "lidarrReleaseTitle")"
     # Normalize Lidarr release title
     local lidarrReleaseTitleClean
     lidarrReleaseTitleClean="$(normalize_string "${lidarrReleaseTitle}")"
