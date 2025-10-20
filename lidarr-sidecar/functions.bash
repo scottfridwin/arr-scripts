@@ -176,7 +176,7 @@ LidarrTaskStatusCheck() {
   while true; do
     # Fetch all commands from Lidarr
     LidarrApiRequest "GET" "command"
-    tasklist="$(get_state "lidarrApiResponse")"
+    taskList="$(get_state "lidarrApiResponse")"
 
     # Count active tasks
     taskCount=$(jq -r '.[] | select(.status=="started") | .name' <<<"${taskList}" | wc -l)
