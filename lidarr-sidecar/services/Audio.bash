@@ -1077,7 +1077,7 @@ DownloadProcess() {
             metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$lidarrAlbumForeignAlbumId" "$file"
             metaflac --remove-tag=ALBUM "$file"
             metaflac --set-tag=ALBUM="$lidarrAlbumTitle" "$file"
-            metaflac --remove-tag=MUSICBRAINZ_TRACKID "$file" # Helps with some matching issues in Lidarr
+            #metaflac --remove-tag=MUSICBRAINZ_TRACKID "$file" # Helps with some matching issues in Lidarr
             log "DEBUG :: File \"${file}\" tagged with MUSICBRAINZ_ALBUMID=${lidarrReleaseForeignId} and MUSICBRAINZ_RELEASEGROUPID=${lidarrAlbumForeignAlbumId}"
         done
         shopt -u nullglob
