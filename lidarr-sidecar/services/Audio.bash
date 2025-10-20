@@ -760,9 +760,6 @@ FuzzyDeezerSearch() {
     lidarrArtistNameSearchClean="$(normalize_string "${lidarrArtistName}")"
     albumTitleSearch="$(jq -R -r @uri <<<"${lidarrAlbumReleaseTitleSearchClean}")"
     albumArtistNameSearch="$(jq -R -r @uri <<<"${lidarrArtistNameSearchClean}")"
-    log "DEBUG :: artistName: ${artistName}"
-    log "DEBUG :: lidarrArtistNameSearchClean: ${lidarrArtistNameSearchClean}"
-    log "DEBUG :: albumArtistNameSearch: ${albumArtistNameSearch}"
 
     # Build search URL
     if [[ "${lidarrArtistForeignArtistId}" == "${VARIOUS_ARTIST_ID}" ]]; then
