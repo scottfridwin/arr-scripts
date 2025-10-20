@@ -675,6 +675,7 @@ SearchProcess() {
     log "INFO :: Search process complete..."
 
     # Download the best match that was found
+    local bestMatchID="$(get_state "bestMatchID")"
     if [[ -n "${bestMatchID}" ]]; then
         DownloadBestMatch
     else
