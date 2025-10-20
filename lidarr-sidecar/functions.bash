@@ -129,7 +129,7 @@ LidarrApiRequest() {
     httpCode=$(tail -n1 <<<"${response}")
     body=$(sed '$d' <<<"${response}")
 
-    set_state "lidarrApiReponseCode" "${httCode}"
+    set_state "lidarrApiReponseCode" "${httpCode}"
     set_state "lidarrApiResponse" "${body}"
     log "TRACE :: httpCode: ${httpCode}"
     log "TRACE :: body: ${body}"
