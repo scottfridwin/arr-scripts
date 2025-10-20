@@ -603,6 +603,20 @@ SearchProcess() {
     set_state "bestMatchContainsCommentary" "false"
     set_state "perfectMatchFound" "false"
 
+    # Load title replacement file
+    if [[ -f "${AUDIO_TITLE_REPLACEMENTS_FILE}" ]]; then
+        log "DEBUG :: Loading custom title replacements from ${AUDIO_TITLE_REPLACEMENTS_FILE}"
+        while IFS="=" read -r key value; do
+            key="$(normalize_string "$key")"
+            value="$(normalize_string "$value")"
+            set_state "titleReplacement_${key}" "$value"
+        done < <(
+            jq -r 'to_entries[] | "\(.key)=\(.value)"' "${AUDIO_TITLE_REPLACEMENTS_FILE}" 2>/dev/null
+        )
+    else
+        log "DEBUG :: No custom title replacements file found (${AUDIO_TITLE_REPLACEMENTS_FILE})"
+    fi
+
     # Start search loop
     local perfectMatchFound="false"
     for lyricType in "${lyricFilter[@]}"; do
@@ -857,6 +871,13 @@ CalculateBestMatch() {
         deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"
         # TODO - In some cases, albums have strange translations that need to happen for comparison to work.
         #Example: For Taylor Swift's 1989, Deezer has "1989 (Deluxe Edition)" but musicbrainz has "1989 D.L.X." because that is the title on the album
+
+        # Apply custom replacements if defined
+        replacement="$(get_state "titleReplacement_${deezerAlbumTitleClean}")"
+        if [[ -n "$replacement" ]]; then
+            log "DEBUG :: Title matched replacement rule: \"${deezerAlbumTitleClean}\" → \"${replacement}\""
+            deezerAlbumTitleClean="${replacement}"
+        fi
 
         # Get album info from Deezer
         GetDeezerAlbumInfo "${deezerAlbumID}"
@@ -1205,13 +1226,17 @@ audioFlacVerification() {
 
 log "INFO :: Starting ${scriptName}"
 
+log "DEBUG :: AUDIO_APPLY_BEETS=${AUDIO_APPLY_BEETS}"
 log "DEBUG :: AUDIO_APPLY_REPLAYGAIN=${AUDIO_APPLY_REPLAYGAIN}"
 log "DEBUG :: AUDIO_CACHE_MAX_AGE_DAYS=${AUDIO_CACHE_MAX_AGE_DAYS}"
+log "DEBUG :: AUDIO_BEETS_CUSTOM_CONFIG=${AUDIO_BEETS_CUSTOM_CONFIG}"
+log "DEBUG :: AUDIO_COMMENTARY_KEYWORDS=${AUDIO_COMMENTARY_KEYWORDS}"
 log "DEBUG :: AUDIO_DATA_PATH=${AUDIO_DATA_PATH}"
 log "DEBUG :: AUDIO_DEEMIX_CUSTOM_CONFIG=${AUDIO_DEEMIX_CUSTOM_CONFIG}"
 log "DEBUG :: AUDIO_DEEZER_API_RETRIES=${AUDIO_DEEZER_API_RETRIES}"
 log "DEBUG :: AUDIO_DEEZER_API_TIMEOUT=${AUDIO_DEEZER_API_TIMEOUT}"
 log "DEBUG :: AUDIO_DEEMIX_ARL_FILE=${AUDIO_DEEMIX_ARL_FILE}"
+log "DEBUG :: AUDIO_DEPRIORITIZE_COMMENTARY_RELEASES=${AUDIO_DEPRIORITIZE_COMMENTARY_RELEASES}"
 log "DEBUG :: AUDIO_DOWNLOADCLIENT_NAME=${AUDIO_DOWNLOADCLIENT_NAME}"
 log "DEBUG :: AUDIO_DOWNLOAD_ATTEMPT_THRESHOLD=${AUDIO_DOWNLOAD_ATTEMPT_THRESHOLD}"
 log "DEBUG :: AUDIO_DOWNLOAD_CLIENT_TIMEOUT=${AUDIO_DOWNLOAD_CLIENT_TIMEOUT}"
@@ -1226,6 +1251,7 @@ log "DEBUG :: AUDIO_REQUIRE_QUALITY=${AUDIO_REQUIRE_QUALITY}"
 log "DEBUG :: AUDIO_RETRY_NOTFOUND_DAYS=${AUDIO_RETRY_NOTFOUND_DAYS}"
 log "DEBUG :: AUDIO_SHARED_LIDARR_PATH=${AUDIO_SHARED_LIDARR_PATH}"
 log "DEBUG :: AUDIO_TAGS=${AUDIO_TAGS}"
+log "DEBUG :: AUDIO_TITLE_REPLACEMENTS_FILE=${AUDIO_TITLE_REPLACEMENTS_FILE}"
 log "DEBUG :: AUDIO_WORK_PATH=${AUDIO_WORK_PATH}"
 
 ### Validation ###
