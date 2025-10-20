@@ -301,5 +301,13 @@ get_state() {
   fi
 
   local -n obj="$name"
+
+  # Protect against unbound key under `set -u`
+  if [[ ! -v "obj[$key]" ]]; then
+    echo "" # or handle error
+    return 0
+  fi
+
+  local -n obj="$name"
   echo "${obj[$key]}"
 }
