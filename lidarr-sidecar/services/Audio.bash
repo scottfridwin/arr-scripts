@@ -600,6 +600,7 @@ SearchProcess() {
     set_state "bestMatchYear" ""
     set_state "bestMatchDistance" 9999
     set_state "bestMatchTrackDiff" 9999
+    set_state "bestMatchContainsCommentary" "false"
     set_state "perfectMatchFound" "false"
 
     # Start search loop
@@ -637,6 +638,31 @@ SearchProcess() {
                 fi
             fi
 
+            # Check for commentary keywords in the name of the album
+            # TODO: Currently just a text match in the name of the album. Could be better
+            local lidarrReleaseContainsCommentary="false"
+            IFS=',' read -r -a commentaryArray <<<"${AUDIO_COMMENTARY_KEYWORDS}"
+            commentaryPattern="($(
+                IFS="|"
+                echo "${commentaryArray[*]}"
+            ))" # join array with | for pattern matching
+
+            if [[ "${lidarrAlbumTitle,,}" =~ ${commentaryPattern,,} ]]; then
+                log "DEBUG :: Album \"${lidarrAlbumTitle}\" matched commentary keyword (${AUDIO_COMMENTARY_KEYWORDS})"
+                lidarrReleaseContainsCommentary="true"
+            elif [[ "${lidarrReleaseTitle,,}" =~ ${commentaryPattern,,} ]]; then
+                log "DEBUG :: Release \"${lidarrReleaseTitle}\" matched commentary keyword (${AUDIO_COMMENTARY_KEYWORDS})"
+                lidarrReleaseContainsCommentary="true"
+            fi
+            set_state "lidarrReleaseContainsCommentary" "${lidarrReleaseContainsCommentary}"
+
+            # Optionally de-prioritize releases that contain commentary tracks
+            bestMatchContainsCommentary=$(get_state "bestMatchContainsCommentary")
+            if [[ "${AUDIO_DEPRIORITIZE_COMMENTARY_RELEASES}" == "true" && "${lidarrReleaseContainsCommentary}" == "true" && "${bestMatchContainsCommentary}" == "false" ]]; then
+                log "INFO :: Already found a match without commentary. Skipping commentary album ${lidarrReleaseTitle}"
+                continue
+            fi
+
             # First search through the artist's Deezer albums to find a match on album title and track count
             log "DEBUG :: lidarrArtistForeignArtistId: ${lidarrArtistForeignArtistId}"
             if [ "${lidarrArtistForeignArtistId}" != "${VARIOUS_ARTIST_ID}" ]; then # Skip various artists
@@ -645,8 +671,6 @@ SearchProcess() {
                     log "DEBUG :: deezerArtistIds: ${deezerArtistIds[*]}"
                     for dId in "${!deezerArtistIds[@]}"; do
                         local deezerArtistId="${deezerArtistIds[$dId]}"
-                        #TODO: This will download the best match, even if we should still search through the rest of the mb releases inside the mb release group.
-                        # Need to track best match through all of the releases and then download only if a perfect match is not found.
                         ArtistDeezerSearch "${lyricType}" "${deezerArtistId}"
                     done
                 fi
@@ -809,9 +833,11 @@ CalculateBestMatch() {
     local bestMatchYear="$(get_state "bestMatchYear")"
     local bestMatchDistance="$(get_state "bestMatchDistance")"
     local bestMatchTrackDiff="$(get_state "bestMatchTrackDiff")"
+    local bestMatchContainsCommentary="$(get_state "bestMatchContainsCommentary")"
 
     local lidarrReleaseTrackCount="$(get_state "lidarrReleaseTrackCount")"
     local lidarrReleaseTitle="$(get_state "lidarrReleaseTitle")"
+    local lidarrReleaseContainsCommentary="$(get_state "lidarrReleaseContainsCommentary")"
     # Normalize Lidarr release title
     local lidarrReleaseTitleClean
     lidarrReleaseTitleClean="$(normalize_string "${lidarrReleaseTitle}")"
@@ -868,6 +894,7 @@ CalculateBestMatch() {
             set_state "bestMatchYear" "${bestMatchYear}"
             set_state "bestMatchDistance" "${bestMatchDistance}"
             set_state "bestMatchTrackDiff" "${bestMatchTrackDiff}"
+            set_state "bestMatchContainsCommentary" "${lidarrReleaseContainsCommentary}"
             set_state "perfectMatchFound" "true"
             log "INFO :: Perfect match found :: ${bestMatchTitle} (${bestMatchYear})"
             break
@@ -885,6 +912,7 @@ CalculateBestMatch() {
             set_state "bestMatchYear" "${bestMatchYear}"
             set_state "bestMatchDistance" "${bestMatchDistance}"
             set_state "bestMatchTrackDiff" "${bestMatchTrackDiff}"
+            set_state "bestMatchContainsCommentary" "${lidarrReleaseContainsCommentary}"
         fi
     done
 
