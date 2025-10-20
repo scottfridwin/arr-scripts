@@ -319,255 +319,6 @@ GetReleaseTitleDisambiguation() {
     log "TRACE :: Exiting GetReleaseTitleDisambiguation..."
 }
 
-# Download album using deemix
-DownloadProcess() {
-    log "TRACE :: Entering DownloadProcess..."
-    # stdin - JSON data from Deezer API for the album
-    # $1 -> MusicBrainz album id
-    # $2 -> MusicBrainz release group id
-    # $3 -> Lidarr album title
-    local mbAlbumId="${1}"
-    local mbReleaseGroupId="${2}"
-    local lidarrAlbumTitle="${3}"
-
-    local deezerAlbumJson
-    deezerAlbumJson=$(cat) # read JSON object from stdin
-
-    # Create Required Directories
-    if [ ! -d "${AUDIO_WORK_PATH}/staging" ]; then
-        mkdir -p "${AUDIO_WORK_PATH}"/staging
-    else
-        rm -rf "${AUDIO_WORK_PATH}"/staging/*
-    fi
-
-    if [ ! -d "${AUDIO_WORK_PATH}/complete" ]; then
-        mkdir -p "${AUDIO_WORK_PATH}"/complete
-    else
-        rm -rf "${AUDIO_WORK_PATH}"/complete/*
-    fi
-
-    if [ ! -d "${AUDIO_WORK_PATH}/cache" ]; then
-        mkdir -p "${AUDIO_WORK_PATH}"/cache
-    else
-        # Delete only files (and empty directories) older than $AUDIO_CACHE_MAX_AGE_DAYS
-        find "${AUDIO_WORK_PATH}/cache" -mindepth 1 -mtime +"$AUDIO_CACHE_MAX_AGE_DAYS" -exec rm -rf {} +
-    fi
-
-    if [ ! -d "${AUDIO_DATA_PATH}/downloaded" ]; then
-        mkdir -p "${AUDIO_DATA_PATH}"/downloaded
-    fi
-
-    if [ ! -d "${AUDIO_DATA_PATH}/failed" ]; then
-        mkdir -p "${AUDIO_DATA_PATH}"/failed
-    fi
-
-    if [ ! -d "${AUDIO_SHARED_LIDARR_PATH}" ]; then
-        log "ERROR :: Shared Lidarr Path not found: ${AUDIO_SHARED_LIDARR_PATH}"
-        setUnhealthy
-        exit 1
-    fi
-
-    local deezerAlbumId deezerAlbumTitle deezerAlbumTitleClean deezerAlbumTrackCount deezerArtistName deezerArtistNameClean downloadedReleaseDate downloadedReleaseYear
-    deezerAlbumId=$(echo "${deezerAlbumJson}" | jq -r ".id")
-    deezerAlbumTitle=$(echo "${deezerAlbumJson}" | jq -r ".title" | head -n1)
-    deezerAlbumTitleClean=$(normalize_string "$deezerAlbumTitle")
-    deezerAlbumTrackCount="$(echo "${deezerAlbumJson}" | jq -r .nb_tracks)"
-    deezerArtistName=$(jq -r '.artist.name' <<<"${deezerAlbumJson}")
-    deezerArtistNameClean=$(normalize_string "$deezerArtistName")
-    downloadedReleaseDate=$(jq -r .release_date <<<"${deezerAlbumJson}")
-    downloadedReleaseYear="${downloadedReleaseDate:0:4}"
-
-    # Check if previously downloaded or failed download
-    if [ -f "${AUDIO_DATA_PATH}/downloaded/${deezerAlbumId}" ]; then
-        log "WARNING :: Album \"${deezerAlbumTitle}\" previously downloaded (${deezerAlbumId})...Skipping..."
-        return
-    fi
-    if [ -f "${AUDIO_DATA_PATH}/failed/${deezerAlbumId}" ]; then
-        log "WARNING :: Album \"${deezerAlbumTitle}\" previously failed to download ($deezerAlbumId)...Skipping..."
-        return
-    fi
-
-    local downloadTry=0
-    while true; do
-        downloadTry=$(($downloadTry + 1))
-
-        # Stop trying after too many attempts
-        if ((downloadTry >= AUDIO_DOWNLOAD_ATTEMPT_THRESHOLD)); then
-            log "WARNING :: Album \"${deezerAlbumTitle}\" failed to download after ${downloadTry} attempts...Skipping..."
-            return
-        fi
-
-        local deemixQuality=flac
-        log "INFO :: Download attempt #${downloadTry} for album \"${deezerAlbumTitle}\""
-        (
-            cd ${DEEMIX_DIR}
-            echo "${DEEMIX_ARL}" | deemix \
-                -b "${deemixQuality}" \
-                -p "${AUDIO_WORK_PATH}/staging" \
-                "https://www.deezer.com/album/${deezerAlbumId}" 2>&1
-
-            # Clean up any temporary deemix data
-            rm -rf /tmp/deemix-imgs 2>/dev/null || true
-        )
-
-        # Check if any audio files were downloaded
-        local clientTestDlCount
-        clientTestDlCount=$(find "${AUDIO_WORK_PATH}/staging" -type f \( -iname "*.flac" -o -iname "*.opus" -o -iname "*.m4a" -o -iname "*.mp3" \) | wc -l)
-        if ((clientTestDlCount <= 0)); then
-            log "WARNING :: No audio files downloaded for album \"${deezerAlbumTitle}\" on attempt #${downloadTry}"
-            continue
-        fi
-
-        # Verify all downloaded FLAC files
-        find "${AUDIO_WORK_PATH}/staging" -type f -iname "*.flac" -print0 |
-            while IFS= read -r -d '' file; do
-                if audioFlacVerification "$file"; then
-                    log "INFO :: File \"${file}\" passed FLAC verification"
-                else
-                    log "WARNING :: File \"${file}\" failed FLAC verification. Removing"
-                    rm -f "$file"
-                fi
-            done
-
-        # Check if full album downloaded
-        local downloadedCount
-        downloadedCount=$(find "${AUDIO_WORK_PATH}/staging" -type f \( -iname "*.flac" -o -iname "*.opus" -o -iname "*.m4a" -o -iname "*.mp3" \) | wc -l)
-        if ((downloadedCount != deezerAlbumTrackCount)); then
-            log "WARNING :: Album \"${deezerAlbumTitle}\" did not download expected number of tracks"
-            sleep 1
-            continue
-        else
-            break
-        fi
-    done
-
-    # Consolidate files to a single folder and delete empty folders
-    log "INFO :: Consolidating files to single folder"
-    {
-        shopt -s nullglob
-        for f in "${AUDIO_WORK_PATH}"/staging/*/*; do
-            mv "$f" "${AUDIO_WORK_PATH}/staging/"
-        done
-        shopt -u nullglob
-    }
-    # Remove now-empty subdirectories
-    find "${AUDIO_WORK_PATH}/staging/" -type d -mindepth 1 -maxdepth 1 -exec rm -rf {} \; 2>/dev/null
-
-    local returnCode=0
-    # Add ReplayGain tags if enabled
-    if [ "$returnCode" -eq 0 ] && [ "${AUDIO_APPLY_REPLAYGAIN}" == "true" ]; then
-        AddReplaygainTags "${AUDIO_WORK_PATH}/staging"
-        returnCode=$?
-    else
-        log "INFO :: Replaygain tagging disabled"
-    fi
-
-    # Add Beets tags if enabled
-    if [ "$returnCode" -eq 0 ] && [ "${AUDIO_APPLY_BEETS}" == "true" ]; then
-        AddBeetsTags "${AUDIO_WORK_PATH}/staging"
-        returnCode=$?
-    else
-        log "INFO :: Beets tagging disabled"
-    fi
-
-    # Add the musicbrainz album id to the files
-    if [ "$returnCode" -eq 0 ]; then
-        shopt -s nullglob
-        # TODO: Tag more than just FLAC files if needed
-        for file in "${AUDIO_WORK_PATH}"/staging/*.flac; do
-            log "DEBUG :: file $file"
-            [ -f "$file" ] || continue # extra safety in case glob expands to nothing
-            metaflac --set-tag=MUSICBRAINZ_ALBUMID="$mbAlbumId" "$file"
-            metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$mbReleaseGroupId" "$file"
-            metaflac --remove-tag=ALBUM "$file"
-            metaflac --set-tag=ALBUM="$lidarrAlbumTitle" "$file"
-            metaflac --remove-tag=MUSICBRAINZ_TRACKID "$file" # Helps with some matching issues in Lidarr
-            log "DEBUG :: File \"${file}\" tagged with MUSICBRAINZ_ALBUMID=${mbAlbumId} and MUSICBRAINZ_RELEASEGROUPID=${mbReleaseGroupId}"
-        done
-        shopt -u nullglob
-    fi
-
-    # Log Completed Download
-    if [ "$returnCode" -eq 0 ]; then
-        log "INFO :: Album \"${deezerAlbumTitle}\" successfully downloaded"
-        touch "${AUDIO_DATA_PATH}/downloaded/${deezerAlbumId}"
-
-        local downloadedAlbumFolder="${deezerArtistNameClean}-${deezerAlbumTitleClean:0:100} (${downloadedReleaseYear})"
-        mkdir -p "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
-        find "${AUDIO_WORK_PATH}/staging" -type f -regex ".*/.*\.\(flac\|m4a\|mp3\|flac\|opus\)" -exec mv {} "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"/ \;
-
-        NotifyLidarrForImport "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
-    else
-        log "WARNING :: Album \"${deezerAlbumTitle}\" failed post-processing and was skipped"
-    fi
-
-    # Clean up staging folder
-    rm -rf "${AUDIO_WORK_PATH}/staging"/*
-    log "TRACE :: Exiting DownloadProcess..."
-}
-
-# Add ReplayGain tags to audio files in the specified folder
-#TODO: replace with rsgain
-AddReplaygainTags() {
-    log "TRACE :: Entering AddReplaygainTags..."
-    # $1 -> folder path containing audio files to be tagged
-    log "INFO :: Adding ReplayGain Tags using r128gain"
-    local importPath="${1}"
-
-    local returnCode=0
-    (
-        set +e # disable -e temporarily in subshell
-        r128gain -r -c 1 -a "${importPath}" >/dev/null 2>/tmp/r128gain_errors.log
-    )
-    returnCode=$? # <- captures exit code of subshell
-    if [ $returnCode -ne 0 ]; then
-        log "WARNING :: r128gain encountered errors while processing $1. See /tmp/r128gain_errors.log for details."
-    fi
-
-    rm -f /tmp/r128gain_errors.log
-    log "TRACE :: Exiting AddReplaygainTags..."
-    return ${returnCode}
-}
-
-AddBeetsTags() {
-    log "TRACE :: Entering AddBeetsTags..."
-    # $1 -> folder path containing audio files to be tagged
-    local importPath="${1}"
-    log "INFO :: Adding Beets tags"
-
-    # Setup
-    rm -f ${BEETS_DIR}/beets-library.blb
-    rm -f ${BEETS_DIR}/beets.log
-    rm -f ${BEETS_DIR}/beets.timer
-    touch ${BEETS_DIR}/beets-library.blb
-    touch ${BEETS_DIR}/beets.timer
-
-    local returnCode=0
-    # Process with Beets
-    (
-        set +e # disable -e temporarily in subshell
-        export XDG_CONFIG_HOME="${BEETS_DIR}/.config"
-        export HOME="${BEETS_DIR}"
-        mkdir -p "${XDG_CONFIG_HOME}"
-        beet -c "${BEETS_DIR}/beets.yaml" \
-            -l "${BEETS_DIR}/beets-library.blb" \
-            -d "$1" import -qC "$1"
-
-        returnCode=$? # <- captures exit code of subshell
-        if [ $returnCode -ne 0 ]; then
-            log "WARNING :: Beets returned error code ${returnCode}"
-        elif [ $(find "${importPath}" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "${BEETS_DIR}/beets.timer" | wc -l) -gt 0 ]; then
-            log "INFO :: Successfully added Beets tags"
-        else
-            log "WARNING :: Unable to match using beets to a musicbrainz release"
-            returnCode=1
-        fi
-    )
-
-    log "TRACE :: Exiting AddBeetsTags..."
-    return ${returnCode}
-}
-
 # Notify Lidarr to import the downloaded album
 NotifyLidarrForImport() {
     log "TRACE :: Entering NotifyLidarrForImport..."
@@ -748,39 +499,7 @@ SearchProcess() {
         log "WARNING :: Lidarr returned no data for album ID ${wantedAlbumId}"
         return
     fi
-
-    # tmp_lidarrAlbumData="$(curl -s "$lidarrUrl/api/v1/album/$wantedAlbumId?apikey=${lidarrApiKey}")"
-    # tmp_lidarrArtistData=$(echo "${tmp_lidarrAlbumData}" | jq -r ".artist")
-    # tmp_lidarrArtistName=$(echo "${tmp_lidarrArtistData}" | jq -r ".artistName")
-    # tmp_lidarrArtistNameSearchSanitized="$(echo "$tmp_lidarrArtistName" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g")"
-    # tmp_albumArtistNameSearch="$(jq -R -r @uri <<<"${tmp_lidarrArtistNameSearchSanitized}")"
-    # log "DEBUG :: tmp_albumArtistNameSearch: ${tmp_albumArtistNameSearch}"
-
-    # tmp_lidarrAlbumReleaseIds=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases | sort_by(.trackCount) | reverse | .[].id")
-    # for tmp_releaseId in $(echo "$tmp_lidarrAlbumReleaseIds"); do
-    #     tmp_releaseTitle=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases[] | select(.id==$tmp_releaseId) | .title")
-    #     tmp_releaseDisambiguation=$(echo "$tmp_lidarrAlbumData" | jq -r ".releases[] | select(.id==$tmp_releaseId) | .disambiguation")
-    #     if [ -z "$tmp_releaseDisambiguation" ]; then
-    #         tmp_releaseDisambiguation=""
-    #     else
-    #         tmp_releaseDisambiguation=" ($tmp_releaseDisambiguation)"
-    #     fi
-    #     echo "${tmp_releaseTitle}${tmp_releaseDisambiguation}" >>/tmp/release-list
-    # done
-    # tmp_lidarrAlbumTitle=$(echo "$tmp_lidarrAlbumData" | jq -r ".title")
-    # echo "$tmp_lidarrAlbumTitle" >>/tmp/release-list
-    # OLDIFS="$IFS"
-    # IFS=$'\n'
-    # tmp_lidarrReleaseTitles=$(cat /tmp/release-list | awk '{ print length, $0 }' | sort -u -n -s -r | cut -d" " -f2-)
-    # tmp_lidarrReleaseTitles=($(echo "$tmp_lidarrReleaseTitles"))
-    # IFS="$OLDIFS"
-    # for tmp_title in ${!tmp_lidarrReleaseTitles[@]}; do
-    #     tmp_lidarrReleaseTitle="${tmp_lidarrReleaseTitles[$tmp_title]}"
-    #     tmp_lidarrAlbumReleaseTitleSearchClean="$(echo "$tmp_lidarrReleaseTitle" | sed -e "s%[^[:alpha:][:digit:]]% %g" -e "s/  */ /g" | sed 's/^[.]*//' | sed 's/[.]*$//g' | sed 's/^ *//g' | sed 's/ *$//g')"
-    #     tmp_albumTitleSearch="$(jq -R -r @uri <<<"${tmp_lidarrAlbumReleaseTitleSearchClean}")"
-    #     log "DEBUG :: tmp_albumTitleSearch: ${tmp_albumTitleSearch}"
-    # done
-    # rm -f /tmp/release-list
+    set_state "lidarrAlbumData" "${lidarrAlbumData}" # Cache response in state object
 
     # Extract artist and album info
     local lidarrArtistData lidarrArtistName lidarrArtistId lidarrArtistForeignArtistId
@@ -788,6 +507,9 @@ SearchProcess() {
     lidarrArtistName=$(echo "$lidarrArtistData" | jq -r ".artistName")
     lidarrArtistId=$(echo "$lidarrArtistData" | jq -r ".artistMetadataId")
     lidarrArtistForeignArtistId=$(echo "$lidarrArtistData" | jq -r ".foreignArtistId")
+    set_state "lidarrArtistName" "${lidarrArtistName}"
+    set_state "lidarrArtistId" "${lidarrArtistId}"
+    set_state "lidarrArtistForeignArtistId" "${lidarrArtistForeignArtistId}"
 
     local lidarrAlbumTitle lidarrAlbumType lidarrAlbumForeignAlbumId
     lidarrAlbumTitle=$(echo "$lidarrAlbumData" | jq -r ".title")
@@ -871,8 +593,16 @@ SearchProcess() {
         ;;
     esac
 
+    # Reset search variables
+    set_state "bestMatchID" ""
+    set_state "bestMatchTitle" ""
+    set_state "bestMatchYear" ""
+    set_state "bestMatchDistance" 9999
+    set_state "bestMatchTrackDiff" 9999
+    set_state "perfectMatchFound" "false"
+
     # Start search loop
-    local matchFound="false"
+    local perfectMatchFound="false"
     for lyricType in "${lyricFilter[@]}"; do
         log "INFO :: Searching with lyric filter: ${lyricType}"
 
@@ -881,8 +611,11 @@ SearchProcess() {
         mapfile -t releasesArray < <(jq -c '.[]' <<<"$sorted_releases")
         for release_json in "${releasesArray[@]}"; do
             lidarrReleaseTitle=$(GetReleaseTitleDisambiguation "${release_json}")
-            lidarrReleaseTrackCount=$(echo "$release_json" | jq -r ".trackCount")
-            lidarrReleaseForeignId=$(echo "$release_json" | jq -r ".foreignReleaseId")
+            lidarrReleaseTrackCount="$(jq -r ".trackCount" <<<"${release_json}")"
+            lidarrReleaseForeignId="$(jq -r ".foreignReleaseId" <<<"${release_json}")"
+            set_state "lidarrReleaseTitle" "${lidarrReleaseTitle}"
+            set_state "lidarrReleaseTrackCount" "${lidarrReleaseTrackCount}"
+            set_state "lidarrReleaseForeignId" "${lidarrReleaseForeignId}"
 
             # TODO: Enhance this functionality to intelligently handle releases that are expected to have these keywords
             # Ignore instrumental-like releases if configured
@@ -906,39 +639,44 @@ SearchProcess() {
             # First search through the artist's Deezer albums to find a match on album title and track count
             log "DEBUG :: lidarrArtistForeignArtistId: ${lidarrArtistForeignArtistId}"
             if [ "${lidarrArtistForeignArtistId}" != "${VARIOUS_ARTIST_ID}" ]; then # Skip various artists
-                if [ "$matchFound" == "false" ]; then
+                perfectMatchFound="$(get_state "perfectMatchFound")"
+                if [ "${perfectMatchFound}" == "false" ]; then
                     log "DEBUG :: deezerArtistIds: ${deezerArtistIds[*]}"
                     for dId in "${!deezerArtistIds[@]}"; do
                         local deezerArtistId="${deezerArtistIds[$dId]}"
                         #TODO: This will download the best match, even if we should still search through the rest of the mb releases inside the mb release group.
                         # Need to track best match through all of the releases and then download only if a perfect match is not found.
-                        ArtistDeezerSearch matchFound "${lyricType}" "${deezerArtistId}" "${lidarrReleaseTitle}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}" "${lidarrAlbumTitle}"
-                        log "DEBUG :: matchFound: ${matchFound}"
+                        ArtistDeezerSearch "${lyricType}" "${deezerArtistId}"
                     done
                 fi
             fi
 
             # Fuzzy search
-            if [ "${matchFound}" == "false" ]; then
-                FuzzyDeezerSearch matchFound "${lyricType}" "${lidarrArtistName}" "${lidarrReleaseTitle}" "${lidarrArtistForeignArtistId}" "${lidarrReleaseTrackCount}" "${lidarrReleaseForeignId}" "${lidarrAlbumForeignAlbumId}" "${lidarrAlbumTitle}"
-                log "DEBUG :: matchFound: ${matchFound}"
+            perfectMatchFound="$(get_state "perfectMatchFound")"
+            if [ "${perfectMatchFound}" == "false" ]; then
+                FuzzyDeezerSearch "${lyricType}"
             fi
 
-            # End search if a match was found
-            if [ "${matchFound}" == "true" ]; then
+            # End search if a perfect match was found
+            perfectMatchFound="$(get_state "perfectMatchFound")"
+            if [ "${perfectMatchFound}" == "true" ]; then
                 break
             fi
         done
 
-        # End search if a match was found
-        if [ "${matchFound}" == "true" ]; then
+        # End search if a perfect match was found
+        perfectMatchFound="$(get_state "perfectMatchFound")"
+        if [ "${perfectMatchFound}" == "true" ]; then
             break
         fi
     done
 
     log "INFO :: Search process complete..."
 
-    if [ "${matchFound}" == "false" ]; then
+    # Download the best match that was found
+    if [[ -n "${bestMatchID}" ]]; then
+        DownloadBestMatch
+    else
         log "INFO :: Album not found"
         if [ "${albumIsNewRelease}" == "true" ]; then
             log "INFO :: Skip marking album as not found because it's a new release..."
@@ -949,28 +687,17 @@ SearchProcess() {
             fi
         fi
     fi
+
     log "TRACE :: Exiting SearchProcess..."
 }
 
 # Search Deezer artist's albums for matches
 ArtistDeezerSearch() {
     log "TRACE :: Entering ArtistDeezerSearch..."
-    # $1 -> name of variable to set to "true" if a download is successful
-    # $2 -> Lyric Type ("Clean" or "Explicit")
-    # $3 -> Deezer Artist ID
-    # $4 -> lidarr album title
-    # $5 -> lidarr album track count
-    # $6 -> MusicBrainz album id
-    # $7 -> MusicBrainz release group id
-    # $8 -> Lidarr album title
-    local matchVarName="${1}"
-    local lyricType="${2}"
-    local artistId="${3}"
-    local albumTitle="${4}"
-    local trackCount="${5}"
-    local mbAlbumId="${6}"
-    local mbReleaseGroupId="${7}"
-    local lidarrAlbumTitle="${8}"
+    # $1 -> Lyric Type ("Clean" or "Explicit")
+    # $2 -> Deezer Artist ID
+    local lyricType="${1}"
+    local artistId="${2}"
 
     local explicitFilter="false"
     if [[ "${lyricType}" == "Explicit" ]]; then
@@ -991,10 +718,9 @@ ArtistDeezerSearch() {
         resultsCount=$(jq 'length' <<<"${filteredAlbums}")
         log "INFO :: Searching albums for Artist ${artistId} filtered by ${lyricType} lyrics (Total Albums: ${resultsCount} found)"
 
-        # Pass filtered albums to the DownloadBestMatch function
+        # Pass filtered albums to the CalculateBestMatch function
         if ((resultsCount > 0)); then
-            DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" "${lidarrAlbumTitle}" <<<"${filteredAlbums}"
-
+            CalculateBestMatch <<<"${filteredAlbums}"
         fi
     else
         log "WARNING :: Failed to fetch album list for Deezer artist ID ${artistId}"
@@ -1005,25 +731,9 @@ ArtistDeezerSearch() {
 # Fuzzy search Deezer for albums matching title and artist
 FuzzyDeezerSearch() {
     log "TRACE :: Entering FuzzyDeezerSearch..."
-    # $1 -> name of variable to set to "true" if a download is successful
-    # $2 -> Lyric Type ("true" = explicit, "false" = clean)
-    # $3 -> lidarr artist name
-    # $4 -> lidarr album title
-    # $5 -> lidarr artist foreign artist id (to check for various artists)
-    # $6 -> lidarr album track count
-    # $7 -> MusicBrainz album id
-    # $8 -> MusicBrainz release group id
-    # $9 -> Lidarr album title
+    # $1 -> Lyric Type ("true" = explicit, "false" = clean)
 
-    local matchVarName="${1}"
-    local lyricFlag="${2}"
-    local artistName="${3}"
-    local albumTitle="${4}"
-    local artistForeignArtistId="${5}"
-    local trackCount="${6}"
-    local mbAlbumId="${7}"
-    local mbReleaseGroupId="${8}"
-    local lidarrAlbumTitle="${9}"
+    local lyricFlag="${1}"
     local type
     local deezerSearch
     local resultsCount
@@ -1036,12 +746,17 @@ FuzzyDeezerSearch() {
         type="Clean"
     fi
 
-    log "INFO :: Fuzzy searching for '${albumTitle}' by '${artistName}' (${type} lyrics)..."
+    local lidarrAlbumData="$(get_state "lidarrAlbumData")"
+    local lidarrReleaseTitle="$(get_state "lidarrReleaseTitle")"
+    local lidarrArtistForeignArtistId="$(get_state "lidarrArtistForeignArtistId")"
+    local lidarrArtistName="$(get_state "lidarrArtistName")"
+
+    log "INFO :: Fuzzy searching for '${lidarrReleaseTitle}' by '${lidarrArtistName}' (${type} lyrics)..."
 
     # Prepare search terms
     local albumTitleSearch albumArtistNameSearch lidarrAlbumReleaseTitleSearchClean lidarrArtistNameSearchClean
-    lidarrAlbumReleaseTitleSearchClean="$(normalize_string "$albumTitle")"
-    lidarrArtistNameSearchClean="$(normalize_string "$artistName")"
+    lidarrAlbumReleaseTitleSearchClean="$(normalize_string "${lidarrReleaseTitle}")"
+    lidarrArtistNameSearchClean="$(normalize_string "${lidarrArtistName}")"
     albumTitleSearch="$(jq -R -r @uri <<<"${lidarrAlbumReleaseTitleSearchClean}")"
     albumArtistNameSearch="$(jq -R -r @uri <<<"${lidarrArtistNameSearchClean}")"
     log "DEBUG :: artistName: ${artistName}"
@@ -1049,7 +764,7 @@ FuzzyDeezerSearch() {
     log "DEBUG :: albumArtistNameSearch: ${albumArtistNameSearch}"
 
     # Build search URL
-    if [[ "${artistForeignArtistId}" == "${VARIOUS_ARTIST_ID}" ]]; then
+    if [[ "${lidarrArtistForeignArtistId}" == "${VARIOUS_ARTIST_ID}" ]]; then
         url="https://api.deezer.com/search?q=album:%22${albumTitleSearch}%22&strict=on&limit=20"
     else
         url="https://api.deezer.com/search?q=artist:%22${albumArtistNameSearch}%22%20album:%22${albumTitleSearch}%22&strict=on&limit=20"
@@ -1058,69 +773,50 @@ FuzzyDeezerSearch() {
     # Call Deezer API
     CallDeezerAPI "${url}"
     local returnCode=$?
-    if [ "$returnCode" -eq 0 ]; then
+    if ((returnCode == 0)); then
         deezerSearch="$(get_state "deezerApiResponse")"
         log "TRACE :: deezerSearch: ${deezerSearch}"
         if [[ -n "${deezerSearch}" ]]; then
             resultsCount=$(jq '.total' <<<"${deezerSearch}")
-            log "DEBUG :: ${resultsCount} search results found for '${albumTitle}' by '${artistName}'"
-            if [[ "$resultsCount" -gt 0 ]]; then
+            log "DEBUG :: ${resultsCount} search results found for '${lidarrReleaseTitle}' by '${lidarrArtistName}'"
+            if ((resultsCount > 0)); then
                 albumsJson=$(jq '[.data[].album] | unique_by(.id)' <<<"${deezerSearch}")
                 uniqueResults=$(jq 'length' <<<"${albumsJson}")
-                log "INFO :: ${uniqueResults} unique search results found for '${albumTitle}' by '${artistName}'"
-                DownloadBestMatch "${matchVarName}" "${albumTitle}" "${trackCount}" "${mbAlbumId}" "${mbReleaseGroupId}" "${lidarrAlbumTitle}" <<<"${albumsJson}"
+                log "INFO :: ${uniqueResults} unique search results found for '${lidarrReleaseTitle}' by '${lidarrArtistName}'"
+                CalculateBestMatch <<<"${albumsJson}"
             else
-                log "INFO :: No results found via Fuzzy Search for '${albumTitle}' by '${artistName}'"
+                log "INFO :: No results found via Fuzzy Search for '${lidarrReleaseTitle}' by '${lidarrArtistName}'"
             fi
         else
             log "WARNING :: Deezer Fuzzy Search API response missing expected fields"
         fi
     else
-        log "WARNING :: Deezer Fuzzy Search failed for '${albumTitle}' by '${artistName}'"
+        log "WARNING :: Deezer Fuzzy Search failed for '${lidarrReleaseTitle}' by '${lidarrArtistName}'"
     fi
     log "TRACE :: Exiting FuzzyDeezerSearch..."
 }
 
 # Given a JSON array of Deezer albums, find the best match based on title similarity and track count
-DownloadBestMatch() {
-    log "TRACE :: Entering DownloadBestMatch..."
-    # $1 -> name of variable to set to "true" if a download is successful
-    # $2 -> title of Lidarr release
-    # $3 -> track count of Lidarr release
-    # $4 -> MusicBrainz album id
-    # $5 -> MusicBrainz release group id
-    # $6 -> Lidarr album title
+CalculateBestMatch() {
+    log "TRACE :: Entering CalculateBestMatch..."
     # stdin -> JSON array containing list of Deezer albums to check
 
-    local matchVarName="${1}"
-    local releaseTitle="${2}"
-    local trackCount="${3}"
-    local mbAlbumId="${4}"
-    local mbReleaseGroupId="${5}"
-    local lidarrAlbumTitle="${6}"
-    local albums albumsCount bestMatchID bestMatchTitle bestMatchYear
-    local bestMatchDistance bestMatchTrackDiff
-
+    local albums albumsCount
     albums=$(cat) # read JSON array from stdin
     albumsCount=$(jq 'length' <<<"${albums}")
 
-    log "DEBUG :: matchVarName: ${matchVarName}"
-    log "DEBUG :: releaseTitle: ${releaseTitle}"
-    log "DEBUG :: trackCount: ${trackCount}"
-    log "DEBUG :: mbAlbumId: ${mbAlbumId}"
-    log "DEBUG :: mbReleaseGroupId: ${mbReleaseGroupId}"
-    log "DEBUG :: lidarrAlbumTitle: ${lidarrAlbumTitle}"
+    local bestMatchID="$(get_state "bestMatchID")"
+    local bestMatchTitle="$(get_state "bestMatchTitle")"
+    local bestMatchYear="$(get_state "bestMatchYear")"
+    local bestMatchDistance="$(get_state "bestMatchDistance")"
+    local bestMatchTrackDiff="$(get_state "bestMatchTrackDiff")"
 
-    bestMatchID=""
-    bestMatchTitle=""
-    bestMatchYear=""
-    bestMatchDistance=9999
-    bestMatchTrackDiff=9999
-
+    local lidarrReleaseTrackCount="$(get_state "lidarrReleaseTrackCount")"
+    local lidarrReleaseTitle="${get_state "lidarrReleaseTitle"}"
     # Normalize Lidarr release title
-    local releaseTitleClean
-    releaseTitleClean=$(normalize_string "$releaseTitle")
-    releaseTitleClean="${releaseTitleClean:0:130}"
+    local lidarrReleaseTitleClean
+    lidarrReleaseTitleClean="$(normalize_string "${lidarrReleaseTitle}")"
+    lidarrReleaseTitleClean="${lidarrReleaseTitleClean:0:130}"
 
     for ((i = 0; i < albumsCount; i++)); do
         local deezerAlbumData deezerAlbumID deezerAlbumTitle deezerAlbumTitleClean
@@ -1132,7 +828,7 @@ DownloadBestMatch() {
         deezerAlbumTitle=$(jq -r ".title" <<<"${deezerAlbumData}")
 
         # --- Normalize title ---
-        deezerAlbumTitleClean=$(normalize_string "$deezerAlbumTitle")
+        deezerAlbumTitleClean="$(normalize_string "$deezerAlbumTitle")"
         deezerAlbumTitleClean="${deezerAlbumTitleClean:0:130}"
 
         # Get album info from Deezer
@@ -1149,8 +845,8 @@ DownloadBestMatch() {
         fi
 
         # Compute Levenshtein distance
-        diff=$(LevenshteinDistance "${releaseTitleClean,,}" "${deezerAlbumTitleClean,,}")
-        trackDiff=$((trackCount > deezerAlbumTrackCount ? trackCount - deezerAlbumTrackCount : deezerAlbumTrackCount - trackCount))
+        diff=$(LevenshteinDistance "${lidarrReleaseTitleClean,,}" "${deezerAlbumTitleClean,,}")
+        trackDiff=$((lidarrReleaseTrackCount > deezerAlbumTrackCount ? lidarrReleaseTrackCount - deezerAlbumTrackCount : deezerAlbumTrackCount - lidarrReleaseTrackCount))
 
         log "DEBUG :: DL Dist=${diff} TrackDiff=${trackDiff} (${deezerAlbumTrackCount} tracks)"
 
@@ -1168,6 +864,12 @@ DownloadBestMatch() {
             bestMatchYear="${downloadedReleaseYear}"
             bestMatchDistance="${diff}"
             bestMatchTrackDiff="${trackDiff}"
+            set_state "bestMatchID" "${bestMatchID}"
+            set_state "bestMatchTitle" "${bestMatchTitle}"
+            set_state "bestMatchYear" "${bestMatchYear}"
+            set_state "bestMatchDistance" "${bestMatchDistance}"
+            set_state "bestMatchTrackDiff" "${bestMatchTrackDiff}"
+            set_state "perfectMatchFound" "true"
             log "INFO :: Perfect match found :: ${bestMatchTitle} (${bestMatchYear})"
             break
         fi
@@ -1179,26 +881,287 @@ DownloadBestMatch() {
             bestMatchYear="${downloadedReleaseYear}"
             bestMatchDistance="${diff}"
             bestMatchTrackDiff="${trackDiff}"
+            set_state "bestMatchID" "${bestMatchID}"
+            set_state "bestMatchTitle" "${bestMatchTitle}"
+            set_state "bestMatchYear" "${bestMatchYear}"
+            set_state "bestMatchDistance" "${bestMatchDistance}"
+            set_state "bestMatchTrackDiff" "${bestMatchTrackDiff}"
         fi
     done
 
-    # After loop — use best match
-    if [[ -n "${bestMatchID}" ]]; then
-        log "INFO :: Using best match :: ${bestMatchTitle} (${bestMatchYear}) :: Distance=${bestMatchDistance} TrackDiff=${bestMatchTrackDiff}"
+    log "TRACE :: Exiting CalculateBestMatch..."
+}
 
-        GetDeezerAlbumInfo "${bestMatchID}"
-        local returnCode=$?
-        if [ "$returnCode" -eq 0 ]; then
-            deezerAlbumData="$(get_state "deezerAlbumInfo")"
-            DownloadProcess "${mbAlbumId}" "${mbReleaseGroupId}" "${lidarrAlbumTitle}" <<<"${deezerAlbumData}"
-            eval "$matchVarName=true"
-        else
-            log "WARNING :: Failed to fetch album info for Deezer album ID ${bestMatchID}. Unable to download..."
-        fi
+# Given a JSON array of Deezer albums, find the best match based on title similarity and track count
+DownloadBestMatch() {
+    log "TRACE :: Entering DownloadBestMatch..."
+
+    local bestMatchID="$(get_state "bestMatchID")"
+    local bestMatchTitle="$(get_state "bestMatchTitle")"
+    local bestMatchYear="$(get_state "bestMatchYear")"
+    local bestMatchDistance="$(get_state "bestMatchDistance")"
+    local bestMatchTrackDiff="$(get_state "bestMatchTrackDiff")"
+
+    # Download the best match that was found
+    log "INFO :: Using best match :: ${bestMatchTitle} (${bestMatchYear}) :: Distance=${bestMatchDistance} TrackDiff=${bestMatchTrackDiff}"
+
+    GetDeezerAlbumInfo "${bestMatchID}"
+    local returnCode=$?
+    if [ "$returnCode" -eq 0 ]; then
+        local deezerAlbumData="$(get_state "deezerAlbumInfo")"
+        DownloadProcess <<<"${deezerAlbumData}"
     else
-        log "INFO :: No suitable match found."
+        log "WARNING :: Failed to fetch album info for Deezer album ID ${bestMatchID}. Unable to download..."
     fi
+
     log "TRACE :: Exiting DownloadBestMatch..."
+}
+
+# Download album using deemix
+DownloadProcess() {
+    log "TRACE :: Entering DownloadProcess..."
+    # stdin - JSON data from Deezer API for the album
+
+    local deezerAlbumJson
+    deezerAlbumJson=$(cat) # read JSON object from stdin
+
+    # Create Required Directories
+    if [ ! -d "${AUDIO_WORK_PATH}/staging" ]; then
+        mkdir -p "${AUDIO_WORK_PATH}"/staging
+    else
+        rm -rf "${AUDIO_WORK_PATH}"/staging/*
+    fi
+
+    if [ ! -d "${AUDIO_WORK_PATH}/complete" ]; then
+        mkdir -p "${AUDIO_WORK_PATH}"/complete
+    else
+        rm -rf "${AUDIO_WORK_PATH}"/complete/*
+    fi
+
+    if [ ! -d "${AUDIO_WORK_PATH}/cache" ]; then
+        mkdir -p "${AUDIO_WORK_PATH}"/cache
+    else
+        # Delete only files (and empty directories) older than $AUDIO_CACHE_MAX_AGE_DAYS
+        find "${AUDIO_WORK_PATH}/cache" -mindepth 1 -mtime +"${AUDIO_CACHE_MAX_AGE_DAYS}" -exec rm -rf {} +
+    fi
+
+    if [ ! -d "${AUDIO_DATA_PATH}/downloaded" ]; then
+        mkdir -p "${AUDIO_DATA_PATH}"/downloaded
+    fi
+
+    if [ ! -d "${AUDIO_DATA_PATH}/failed" ]; then
+        mkdir -p "${AUDIO_DATA_PATH}"/failed
+    fi
+
+    if [ ! -d "${AUDIO_SHARED_LIDARR_PATH}" ]; then
+        log "ERROR :: Shared Lidarr Path not found: ${AUDIO_SHARED_LIDARR_PATH}"
+        setUnhealthy
+        exit 1
+    fi
+
+    local deezerAlbumId deezerAlbumTitle deezerAlbumTitleClean deezerAlbumTrackCount deezerArtistName deezerArtistNameClean downloadedReleaseDate downloadedReleaseYear
+    deezerAlbumId=$(echo "${deezerAlbumJson}" | jq -r ".id")
+    deezerAlbumTitle=$(echo "${deezerAlbumJson}" | jq -r ".title" | head -n1)
+    deezerAlbumTitleClean=$(normalize_string "$deezerAlbumTitle")
+    deezerAlbumTrackCount="$(echo "${deezerAlbumJson}" | jq -r .nb_tracks)"
+    deezerArtistName=$(jq -r '.artist.name' <<<"${deezerAlbumJson}")
+    deezerArtistNameClean=$(normalize_string "$deezerArtistName")
+    downloadedReleaseDate=$(jq -r .release_date <<<"${deezerAlbumJson}")
+    downloadedReleaseYear="${downloadedReleaseDate:0:4}"
+
+    # Check if previously downloaded or failed download
+    if [ -f "${AUDIO_DATA_PATH}/downloaded/${deezerAlbumId}" ]; then
+        log "WARNING :: Album \"${deezerAlbumTitle}\" previously downloaded (${deezerAlbumId})...Skipping..."
+        return
+    fi
+    if [ -f "${AUDIO_DATA_PATH}/failed/${deezerAlbumId}" ]; then
+        log "WARNING :: Album \"${deezerAlbumTitle}\" previously failed to download ($deezerAlbumId)...Skipping..."
+        return
+    fi
+
+    local downloadTry=0
+    while true; do
+        downloadTry=$(($downloadTry + 1))
+
+        # Stop trying after too many attempts
+        if ((downloadTry >= AUDIO_DOWNLOAD_ATTEMPT_THRESHOLD)); then
+            log "WARNING :: Album \"${deezerAlbumTitle}\" failed to download after ${downloadTry} attempts...Skipping..."
+            return
+        fi
+
+        local deemixQuality=flac
+        log "INFO :: Download attempt #${downloadTry} for album \"${deezerAlbumTitle}\""
+        (
+            cd ${DEEMIX_DIR}
+            echo "${DEEMIX_ARL}" | deemix \
+                -b "${deemixQuality}" \
+                -p "${AUDIO_WORK_PATH}/staging" \
+                "https://www.deezer.com/album/${deezerAlbumId}" 2>&1
+
+            # Clean up any temporary deemix data
+            rm -rf /tmp/deemix-imgs 2>/dev/null || true
+        )
+
+        # Check if any audio files were downloaded
+        local clientTestDlCount
+        clientTestDlCount=$(find "${AUDIO_WORK_PATH}/staging" -type f \( -iname "*.flac" -o -iname "*.opus" -o -iname "*.m4a" -o -iname "*.mp3" \) | wc -l)
+        if ((clientTestDlCount <= 0)); then
+            log "WARNING :: No audio files downloaded for album \"${deezerAlbumTitle}\" on attempt #${downloadTry}"
+            continue
+        fi
+
+        # Verify all downloaded FLAC files
+        find "${AUDIO_WORK_PATH}/staging" -type f -iname "*.flac" -print0 |
+            while IFS= read -r -d '' file; do
+                if audioFlacVerification "$file"; then
+                    log "INFO :: File \"${file}\" passed FLAC verification"
+                else
+                    log "WARNING :: File \"${file}\" failed FLAC verification. Removing"
+                    rm -f "$file"
+                fi
+            done
+
+        # Check if full album downloaded
+        local downloadedCount
+        downloadedCount=$(find "${AUDIO_WORK_PATH}/staging" -type f \( -iname "*.flac" -o -iname "*.opus" -o -iname "*.m4a" -o -iname "*.mp3" \) | wc -l)
+        if ((downloadedCount != deezerAlbumTrackCount)); then
+            log "WARNING :: Album \"${deezerAlbumTitle}\" did not download expected number of tracks"
+            sleep 1
+            continue
+        else
+            break
+        fi
+    done
+
+    # Consolidate files to a single folder and delete empty folders
+    log "INFO :: Consolidating files to single folder"
+    {
+        shopt -s nullglob
+        for f in "${AUDIO_WORK_PATH}"/staging/*/*; do
+            mv "$f" "${AUDIO_WORK_PATH}/staging/"
+        done
+        shopt -u nullglob
+    }
+    # Remove now-empty subdirectories
+    find "${AUDIO_WORK_PATH}/staging/" -type d -mindepth 1 -maxdepth 1 -exec rm -rf {} \; 2>/dev/null
+
+    local returnCode=0
+    # Add ReplayGain tags if enabled
+    if [ "$returnCode" -eq 0 ] && [ "${AUDIO_APPLY_REPLAYGAIN}" == "true" ]; then
+        AddReplaygainTags "${AUDIO_WORK_PATH}/staging"
+        returnCode=$?
+    else
+        log "INFO :: Replaygain tagging disabled"
+    fi
+
+    # Add Beets tags if enabled
+    if [ "$returnCode" -eq 0 ] && [ "${AUDIO_APPLY_BEETS}" == "true" ]; then
+        AddBeetsTags "${AUDIO_WORK_PATH}/staging"
+        returnCode=$?
+    else
+        log "INFO :: Beets tagging disabled"
+    fi
+
+    # Add the musicbrainz album id to the files
+    if [ "$returnCode" -eq 0 ]; then
+        local lidarrAlbumData="${get_state "lidarrAlbumData"}"
+        local lidarrAlbumTitle="$(jq -r ".title" <<<"${lidarrAlbumData}")"
+        local lidarrAlbumForeignAlbumId="$(jq -r ".foreignAlbumId" <<<"${lidarrAlbumData}")"
+        local lidarrReleaseForeignId="$(jq -r ".foreignReleaseId" <<<"${lidarrAlbumData}")"
+        shopt -s nullglob
+        # TODO: Tag more than just FLAC files if needed
+        for file in "${AUDIO_WORK_PATH}"/staging/*.flac; do
+            log "DEBUG :: file $file"
+            [ -f "$file" ] || continue # extra safety in case glob expands to nothing
+            metaflac --set-tag=MUSICBRAINZ_ALBUMID="$lidarrReleaseForeignId" "$file"
+            metaflac --set-tag=MUSICBRAINZ_RELEASEGROUPID="$lidarrAlbumForeignAlbumId" "$file"
+            metaflac --remove-tag=ALBUM "$file"
+            metaflac --set-tag=ALBUM="$lidarrAlbumTitle" "$file"
+            metaflac --remove-tag=MUSICBRAINZ_TRACKID "$file" # Helps with some matching issues in Lidarr
+            log "DEBUG :: File \"${file}\" tagged with MUSICBRAINZ_ALBUMID=${lidarrReleaseForeignId} and MUSICBRAINZ_RELEASEGROUPID=${lidarrAlbumForeignAlbumId}"
+        done
+        shopt -u nullglob
+    fi
+
+    # Log Completed Download
+    if [ "$returnCode" -eq 0 ]; then
+        log "INFO :: Album \"${deezerAlbumTitle}\" successfully downloaded"
+        touch "${AUDIO_DATA_PATH}/downloaded/${deezerAlbumId}"
+
+        local downloadedAlbumFolder="${deezerArtistNameClean}-${deezerAlbumTitleClean:0:100} (${downloadedReleaseYear})"
+        mkdir -p "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
+        find "${AUDIO_WORK_PATH}/staging" -type f -regex ".*/.*\.\(flac\|m4a\|mp3\|flac\|opus\)" -exec mv {} "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"/ \;
+
+        NotifyLidarrForImport "${AUDIO_SHARED_LIDARR_PATH}/${downloadedAlbumFolder}"
+    else
+        log "WARNING :: Album \"${deezerAlbumTitle}\" failed post-processing and was skipped"
+    fi
+
+    # Clean up staging folder
+    rm -rf "${AUDIO_WORK_PATH}/staging"/*
+    log "TRACE :: Exiting DownloadProcess..."
+}
+
+# Add ReplayGain tags to audio files in the specified folder
+#TODO: replace with rsgain
+AddReplaygainTags() {
+    log "TRACE :: Entering AddReplaygainTags..."
+    # $1 -> folder path containing audio files to be tagged
+    log "INFO :: Adding ReplayGain Tags using r128gain"
+    local importPath="${1}"
+
+    local returnCode=0
+    (
+        set +e # disable -e temporarily in subshell
+        r128gain -r -c 1 -a "${importPath}" >/dev/null 2>/tmp/r128gain_errors.log
+    )
+    returnCode=$? # <- captures exit code of subshell
+    if [ $returnCode -ne 0 ]; then
+        log "WARNING :: r128gain encountered errors while processing $1. See /tmp/r128gain_errors.log for details."
+    fi
+
+    rm -f /tmp/r128gain_errors.log
+    log "TRACE :: Exiting AddReplaygainTags..."
+    return ${returnCode}
+}
+
+AddBeetsTags() {
+    log "TRACE :: Entering AddBeetsTags..."
+    # $1 -> folder path containing audio files to be tagged
+    local importPath="${1}"
+    log "INFO :: Adding Beets tags"
+
+    # Setup
+    rm -f ${BEETS_DIR}/beets-library.blb
+    rm -f ${BEETS_DIR}/beets.log
+    rm -f ${BEETS_DIR}/beets.timer
+    touch ${BEETS_DIR}/beets-library.blb
+    touch ${BEETS_DIR}/beets.timer
+
+    local returnCode=0
+    # Process with Beets
+    (
+        set +e # disable -e temporarily in subshell
+        export XDG_CONFIG_HOME="${BEETS_DIR}/.config"
+        export HOME="${BEETS_DIR}"
+        mkdir -p "${XDG_CONFIG_HOME}"
+        beet -c "${BEETS_DIR}/beets.yaml" \
+            -l "${BEETS_DIR}/beets-library.blb" \
+            -d "$1" import -qC "$1"
+
+        returnCode=$? # <- captures exit code of subshell
+        if [ $returnCode -ne 0 ]; then
+            log "WARNING :: Beets returned error code ${returnCode}"
+        elif [ $(find "${importPath}" -type f -regex ".*/.*\.\(flac\|opus\|m4a\|mp3\)" -newer "${BEETS_DIR}/beets.timer" | wc -l) -gt 0 ]; then
+            log "INFO :: Successfully added Beets tags"
+        else
+            log "WARNING :: Unable to match using beets to a musicbrainz release"
+            returnCode=1
+        fi
+    )
+
+    log "TRACE :: Exiting AddBeetsTags..."
+    return ${returnCode}
 }
 
 # Verify a FLAC file for corruption
